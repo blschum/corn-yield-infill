@@ -1,0 +1,957 @@
+---
+title: "Corn Yield Random Forest: Visualizations"
+author: "Britta Schumacher"
+date: "Last updated: `r format(Sys.time(), '%d %B, %Y')`"
+output: 
+  html_document:
+    theme: yeti
+    toc: yes
+    toc_float: true
+    code_folding: hide
+---
+
+# Bring in the data, clean it up, and start visualizing.
+
+First, we'll work with the reduced RF modeling across all FRRs and years! Then, we'll visualize error over time using the individual year-by-year and FRR-by-FRR RFs!
+```{r warning = F, message = F}
+library(ggplot2)
+library(sp)
+library(tidyverse)
+library(tmap)
+library(RColorBrewer)
+library(rgeos)
+library(spdplyr)
+library(viridis)
+library(rgdal)
+library(rgeos)
+library(ggthemes)
+library(ggalt)
+library(maps)
+library(maptools)
+library(grid)
+library(biscale)
+library(ggcorrplot)
+
+# build GEOID back into RFpreds_red.RDS dataframe
+red <- readRDS('./results/RFpreds_red.RDS')
+corn_yield <- readRDS("./data/yieldRF.RDS")
+ctys <- readRDS("./data/county.RDS")
+state <- readRDS("./data/states.RDS")
+
+# keep only counties with at least 3 years of data
+sub_id <- corn_yield %>% mutate(count = 1) %>%  group_by(GEOID) %>% summarise(n = sum(count)) %>% filter(n >= 3)
+
+corn_yield <- corn_yield %>% filter(GEOID %in% sub_id$GEOID)
+
+yield_RF_reduced <- corn_yield %>% 
+  dplyr::select(GEOID,YEAR,YIELD,PERC_IRR,CORN_SQKM,FRR,GDD,BV18,BV2,SDI_CDL_AG,AG_SQKM,BV9,TP,BV4,ELEVATION,BV8,S_PH_H2O,BV19,T_CEC_SOIL,SLOPE,BV15,T_OC,T_REF_BULK_DENSITY)
+
+red <- merge(red, yield_RF_reduced, by = c("YEAR","YIELD","PERC_IRR","CORN_SQKM","FRR","GDD","BV18","BV2","SDI_CDL_AG","AG_SQKM","BV9","TP","BV4","ELEVATION","BV8","S_PH_H2O","BV19","T_CEC_SOIL","SLOPE","BV15","T_OC","T_REF_BULK_DENSITY"))
+
+# build frr spatial
+frr <- read.csv("./data/FRR_data.csv") 
+frr <- frr[,1:2]
+colnames(frr)<- c("GEOID", "FRR")
+frr$GEOID <- str_pad(frr$GEOID, width = 5, side = "left", pad= "0") 
+
+#Make spatial:
+frr_shp <- merge(ctys, frr, by = "GEOID")
+spplot(frr_shp, "FRR")
+
+getmode <- function(v) {
+  uniqv <- unique(v)
+  uniqv[which.max(tabulate(match(v, uniqv)))]
+}
+
+#Aggregate counties to the regional boundaries:
+library(maptools)
+frr_agg <- unionSpatialPolygons(SpP = frr_shp, IDs = frr_shp$FRR)
+frr_final <- aggregate(frr_shp["FRR"], frr_agg, FUN = getmode)
+
+# Visualize difference between reported yield (YIELD) and predicted yield (PREDICTIONS) across space-time
+diff <- red %>% dplyr::select(c(GEOID, YEAR, YIELD, PREDICTIONS)) %>% mutate(diff = PREDICTIONS - YIELD)
+diff_sp <- merge(ctys, diff, by = "GEOID", duplicateGeoms = TRUE)
+
+```
+
+# Full Panel, reduced-RF
+
+# Let's visualize observations v. predictions
+```{r}
+cor(red$YIELD, red$PREDICTIONS, method = "pearson")
+
+p <- ggplot(red, aes(x=YIELD, y=PREDICTIONS)) +
+  geom_point(size = 0.5) + 
+  geom_smooth(method=lm, se=FALSE, fullrange=TRUE)+
+  geom_abline(intercept = 0, slope = 1, color="black", 
+                 linetype="dashed", size=0.65) +
+  theme_classic() +
+  xlab("Observed (bushels/acre)") +
+  ylab("Predicted (bushels/acre)") +
+  xlim(1,250) +
+  ylim(0,250) +
+  annotate("text", x = 175.0, y = 40.0, label = "RMSE = 16.9 bushels/acre\nVariance Explained = 81.6%\nr = 0.91", hjust=0)
+p
+
+ggsave(filename = "./viz/sp_reducedRF/cor_plot.png", plot = p, dpi = 300, width = 7, height = 7)
+```
+
+
+# Let's visualize error in yield each year
+```{r}
+diff_map <- function(year, breaks, title) {
+  
+  diff_sp <- diff_sp %>% filter(YEAR == year)
+  
+map <- tm_shape(ctys) + tm_polygons(col="grey", border.col = "transparent") + 
+  tm_shape(diff_sp) +
+  tm_polygons(col = "diff", breaks = breaks, palette = c("#67001F","#B2182B", "#D6604D", "#F4A582", "#FDDBC7", "#D1E5F0" ,"#92C5DE","#4393C3", "#2166AC", "#053061"), border.col = "transparent", legend.hist = TRUE, title = title) +
+  tm_legend(outside = TRUE, hist.width = 1.5) +
+  tm_layout(frame = FALSE,
+            legend.hist.size = 0.5) +
+  tm_shape(frr_final) +
+  tm_borders(col = "black")
+  # return
+  tmap_save(map, file = paste0('./viz/sp_reducedRF/spdiff_red_',year,'.png'))
+
+}
+
+error_2008 <- diff_map(2008, c(-80,-30,-20,-10,-5,0,5,10,20,30,60), "Error in 2008\n(bushels/acre)")
+error_2009 <- diff_map(2009, c(-50,-30,-20,-10,-5,0,5,10,20,30,60), "Error in 2009\n(bushels/acre)")
+error_2010 <- diff_map(2010, c(-70,-30,-20,-10,-5,0,5,10,20,30,70), "Error in 2010\n(bushels/acre)")
+error_2011 <- diff_map(2011, c(-60,-30,-20,-10,-5,0,5,10,20,30,50), "Error in 2011\n(bushels/acre)")
+error_2012 <- diff_map(2012, c(-80,-30,-20,-10,-5,0,5,10,20,30,60), "Error in 2012\n(bushels/acre)")
+error_2013 <- diff_map(2013, c(-60,-30,-20,-10,-5,0,5,10,20,30,60), "Error in 2013\n(bushels/acre)")
+error_2014 <- diff_map(2014, c(-50,-30,-20,-10,-5,0,5,10,20,30,70), "Error in 2014\n(bushels/acre)")
+error_2015 <- diff_map(2015, c(-70,-30,-20,-10,-5,0,5,10,20,30,60), "Error in 2015\n(bushels/acre)")
+error_2016 <- diff_map(2016, c(-50,-30,-20,-10,-5,0,5,10,20,30,110), "Error in 2016\n(bushels/acre)")
+error_2017 <- diff_map(2017, c(-50,-30,-20,-10,-5,0,5,10,20,30,60), "Error in 2017\n(bushels/acre)")
+error_2018 <- diff_map(2018, c(-50,-30,-20,-10,-5,0,5,10,20,30,60), "Error in 2018\n(bushels/acre)")
+
+```
+
+# Let's visualize error in yield on average, summarised by county
+```{r}
+# summarise average
+diff_av <- diff %>% group_by(GEOID) %>% summarise(mean_diff = mean(diff))
+# % between -10 and 10
+perc <- diff_av %>% dplyr::filter(mean_diff > -10 & mean_diff < 10) #1016/1680 = 60.476
+# make spatial
+diff_av_sp <- merge(ctys, diff_av, by = "GEOID")
+
+map <- tm_shape(diff_av_sp) +
+  tm_polygons(col = "mean_diff", breaks = c(-70,-30,-20,-10,-5,0,5,10,20,30,70), palette = c("#67001F","#B2182B", "#D6604D", "#F4A582", "#FDDBC7", "#D1E5F0" ,"#92C5DE","#4393C3", "#2166AC", "#053061"), border.col = "transparent", title = "Average Error\n(bushels/acre)", legend.hist = TRUE, title = title) +
+  tm_legend(outside = TRUE, hist.width = 1.5) +
+  tm_layout(frame = FALSE,
+            legend.hist.size = 0.5) +
+      tm_shape(frr_final) +
+  tm_borders(col = "black")
+
+map
+
+tmap_save(map, file = paste0('./viz/sp_reducedRF/spdiff_red_ave.png'))
+
+# Where were model errors the highest?
+diff_10 <- diff %>% group_by(GEOID) %>% summarise(mean_diff = mean(diff)) %>% filter(mean_diff < -20 | mean_diff > 20)
+diff_10_sp <- merge(ctys, diff_10, by = "GEOID")
+
+map <- tm_shape(diff_10_sp) +
+  tm_polygons(col = "mean_diff", breaks = c(-70,-30,-20,-10,-5,0,5,10,20,30,70), palette = c("#67001F","#B2182B", "#D6604D", "#F4A582", "#FDDBC7", "#D1E5F0" ,"#92C5DE","#4393C3", "#2166AC", "#053061"), border.col = "transparent", title = "Average Error\n(bushels/acre)", legend.hist = TRUE, title = title) +
+  tm_legend(outside = TRUE, hist.width = 1.5) +
+  tm_layout(frame = FALSE,
+            legend.hist.size = 0.5) +
+      tm_shape(frr_final) +
+  tm_borders(col = "black")
+
+map
+```
+
+# Let's visualize error over time (box and whisker)
+```{r}
+bw_diff <- ggplot(diff, aes(x = YEAR, y = diff)) +
+  geom_boxplot() +
+  theme_classic() +
+  theme(axis.title = element_text(size = 14),
+        axis.text=element_text(size=11)) +
+  theme(axis.title.x=element_blank(),
+        axis.text.x=element_text(size=9, angle=45, hjust = 1)) +
+  theme(strip.background=element_blank()) +
+  ylab("Distribution of Model Errors (bu/acre)")
+
+bw_diff
+
+ggsave(filename = "./viz/sp_reducedRF/bw_error_red.png", plot = bw_diff, dpi = 300, width = 7, height = 5)
+```
+
+# Build Irrigation and Yield Maps
+```{r}
+# Build irrigation
+i <- corn_yield %>% dplyr::select(GEOID,YEAR,PERC_IRR) %>% group_by(GEOID) %>% summarise(ave = mean(PERC_IRR))
+i_sp <- merge(ctys, i, by = "GEOID")
+
+# find change in irrigated extent between counties with data in 2008 and 2018
+i_diff <- corn_yield %>% dplyr::select(GEOID,YEAR,PERC_IRR) %>% filter(YEAR == 2008 | YEAR == 2018) %>% mutate(index = 1) %>% group_by(GEOID) %>% summarise(sum = sum(index)) %>% filter(sum == 2)
+
+i_diff <- corn_yield %>% dplyr::select(GEOID,YEAR,PERC_IRR) %>% filter(YEAR == 2008 | YEAR == 2018) %>% filter(GEOID %in% i_diff$GEOID) %>% spread(YEAR, PERC_IRR) 
+colnames(i_diff)[2] <- "y2008"
+colnames(i_diff)[3] <- "y2018"
+i_diff <- i_diff %>% mutate(diff = y2018 - y2008) #%>% filter(diff > 0) # 681/1153 counties
+
+map <- tm_shape(i_sp) +
+  tm_polygons(col = "ave", breaks = c(0.0,0.2,0.50,1.0,2.50,10.0,25.0,50.0,75.0,100.0), palette = "Blues", border.col = "transparent", title = "Percent Agricultural\nLand Irrigated") +
+  tm_legend(outside = TRUE) +
+  tm_layout(frame = FALSE) +
+    tm_shape(frr_final) +
+  tm_borders(col = "black")
+
+map
+
+tmap_save(map, file = paste0('./viz/irrigation.png'))
+
+# build irrigation in 2018
+irr <- readRDS("./data/full_merged_irrigation.RDS")
+i18 <- irr %>% dplyr::select(GEOID,YEAR,AG_ACRES, IRR_ACRES, PERC_IRR, SOURCE) %>% filter(YEAR == 2018) %>%  filter(SOURCE == "NASS")
+
+i18 <- i18[complete.cases(i18), ]
+i18_sp <- merge(ctys, i18, by = "GEOID")
+
+map <- tm_shape(i18_sp) +
+  tm_polygons(col = "PERC_IRR", breaks = c(0.0,0.2,0.50,1.0,2.50,10.0,25.0,50.0,75.0,100.0), palette = "Blues", border.col = "transparent", title = "") +
+  tm_legend(outside = TRUE) +
+  tm_layout(frame = FALSE) +
+    tm_shape(state) +
+  tm_borders(col = "black")
+
+map
+
+tmap_save(map, file = paste0('./viz/irrigation2018.png'), dpi = 300)
+
+# box whisker comparing difficult to regress places and easy v. irrigated extent
+ibw <- red %>% dplyr::select(c(GEOID, YEAR, PERC_IRR, YIELD, PREDICTIONS)) %>% mutate(diff = PREDICTIONS - YIELD) 
+
+ibw$Error <- ifelse(ibw$diff < -10 | ibw$diff > 10, "Greater than |10| bu/acre", "Less than |10| bu/acre")
+ibw$Error <- as.factor(ibw$Error)
+
+
+bw <- ggplot(ibw, aes(x=YEAR, y=PERC_IRR, fill=Error)) +
+  geom_boxplot() +
+  theme_classic() +
+  theme(legend.position = "bottom") +
+  theme(axis.title=element_text(size=14),
+        axis.text=element_text(size=11)) +
+  theme(axis.title.x=element_blank(),
+        axis.text.x=element_text(size=9, angle = 45, hjust = 1)) +
+  ylab("Percent Irrigated Agricultural Land") +
+  scale_fill_manual(values=c("#99CCFF", "#4A7DA5")) +
+  coord_cartesian(ylim = c(0, 25))  
+bw
+
+ggsave(filename = "./viz/sp_reducedRF/bw_irrig.png", plot = bw, dpi = 300, width = 7, height = 5)
+
+# Build yield
+y <- corn_yield %>% dplyr::select(GEOID,YEAR,YIELD) %>% group_by(GEOID) %>% summarise(ave = mean(YIELD))
+y_sp <- merge(ctys, y, by = "GEOID")
+
+map <- tm_shape(y_sp) +
+  tm_polygons(col = "ave", breaks = c(25,75,100,125,150,175,200,225,275), palette = "Greens", border.col = "transparent", title = "Corn Yield\n(bu/acre)") +
+  tm_legend(outside = TRUE) +
+  tm_layout(frame = FALSE) +
+    tm_shape(frr_final) +
+  tm_borders(col = "black")
+
+map
+
+tmap_save(map, file = paste0('./viz/yield.png'))
+```
+
+
+# Reduced year-by-year RFs
+
+# Let's visualize error in yield each year
+```{r}
+# read in data
+preds_2008 <- readRDS("./results/RFpreds_2008.RDS")
+preds_2009 <- readRDS("./results/RFpreds_2009.RDS")
+preds_2010 <- readRDS("./results/RFpreds_2010.RDS")
+preds_2011 <- readRDS("./results/RFpreds_2011.RDS")
+preds_2012 <- readRDS("./results/RFpreds_2012.RDS")
+preds_2013 <- readRDS("./results/RFpreds_2013.RDS")
+preds_2014 <- readRDS("./results/RFpreds_2014.RDS")
+preds_2015 <- readRDS("./results/RFpreds_2015.RDS")
+preds_2016 <- readRDS("./results/RFpreds_2016.RDS")
+preds_2017 <- readRDS("./results/RFpreds_2017.RDS")
+preds_2018 <- readRDS("./results/RFpreds_2018.RDS")
+
+# build function to build GEOID back into df's
+buildpreds <- function(df) {
+  
+  df <- merge(df, yield_RF_reduced, by = c("PERC_IRR","CORN_SQKM","FRR","GDD","BV18","BV2", "SDI_CDL_AG","AG_SQKM","BV9","TP","BV4","ELEVATION","BV8","S_PH_H2O","BV19","T_CEC_SOIL","SLOPE","BV15","T_OC","T_REF_BULK_DENSITY"))
+  
+  colnames(df)[22] <- "PREDICTIONS"
+  
+  # Visualize difference between reported yield (YIELD) and predicted yield (PREDICTIONS) across space-time
+diff <- df %>% dplyr::select(c(GEOID, YEAR, YIELD, PREDICTIONS)) %>% mutate(diff = PREDICTIONS - YIELD)
+
+return(diff)
+}
+
+
+df_2008 <- buildpreds(preds_2008)
+df_2009 <- buildpreds(preds_2009)
+df_2010 <- buildpreds(preds_2010)
+df_2011 <- buildpreds(preds_2011)
+df_2012 <- buildpreds(preds_2012)
+df_2013 <- buildpreds(preds_2013)
+df_2014 <- buildpreds(preds_2014)
+df_2015 <- buildpreds(preds_2015)
+df_2016 <- buildpreds(preds_2016)
+df_2017 <- buildpreds(preds_2017)
+df_2018 <- buildpreds(preds_2018)
+
+# build full data.frame
+diff_indyrs <- rbind(df_2008,df_2009,df_2010,df_2011,df_2012,df_2013,df_2014,df_2015,df_2016,df_2017,df_2018)
+
+# build spatial and maps
+diff_indyrs_sp <- merge(ctys, diff_indyrs, by = "GEOID", duplicateGeoms = TRUE)
+
+diff_map <- function(year, breaks, title) {
+  
+  diff_sp <- diff_indyrs_sp %>% filter(YEAR == year)
+  
+map <- tm_shape(ctys) + tm_polygons(col="grey", border.col = "transparent") + 
+  tm_shape(diff_sp) +
+  tm_polygons(col = "diff", breaks = breaks, palette = c("#67001F","#B2182B", "#D6604D", "#F4A582", "#FDDBC7", "#D1E5F0" ,"#92C5DE","#4393C3", "#2166AC", "#053061"), border.col = "transparent", legend.hist = TRUE, title = title) +
+  tm_legend(outside = TRUE, hist.width = 1.5) +
+  tm_layout(frame = FALSE,
+            legend.hist.size = 0.5) +
+    tm_shape(frr_final) +
+  tm_borders(col = "black")
+  # return
+  tmap_save(map, file = paste0('./viz/sp_indyrsRF/spdiff_',year,'.png'))
+
+}
+
+error_2008 <- diff_map(2008, c(-80,-30,-20,-10,-5,0,5,10,20,30,70), "Error in 2008\n(bushels/acre)")
+error_2009 <- diff_map(2009, c(-60,-30,-20,-10,-5,0,5,10,20,30,50), "Error in 2009\n(bushels/acre)")
+error_2010 <- diff_map(2010, c(-80,-30,-20,-10,-5,0,5,10,20,30,60), "Error in 2010\n(bushels/acre)")
+error_2011 <- diff_map(2011, c(-70,-30,-20,-10,-5,0,5,10,20,30,80), "Error in 2011\n(bushels/acre)")
+error_2012 <- diff_map(2012, c(-70,-30,-20,-10,-5,0,5,10,20,30,80), "Error in 2012\n(bushels/acre)")
+error_2013 <- diff_map(2013, c(-70,-30,-20,-10,-5,0,5,10,20,30,60), "Error in 2013\n(bushels/acre)")
+error_2014 <- diff_map(2014, c(-70,-30,-20,-10,-5,0,5,10,20,30,90), "Error in 2014\n(bushels/acre)")
+error_2015 <- diff_map(2015, c(-80,-30,-20,-10,-5,0,5,10,20,30,70), "Error in 2015\n(bushels/acre)")
+error_2016 <- diff_map(2016, c(-70,-30,-20,-10,-5,0,5,10,20,30,90), "Error in 2016\n(bushels/acre)")
+error_2017 <- diff_map(2017, c(-80,-30,-20,-10,-5,0,5,10,20,30,70), "Error in 2017\n(bushels/acre)")
+error_2018 <- diff_map(2018, c(-60,-30,-20,-10,-5,0,5,10,20,30,80), "Error in 2018\n(bushels/acre)")
+
+```
+
+# Let's visualize error in yield on average, summarised by county
+```{r}
+diff_indyrs_av <- diff_indyrs %>% group_by(GEOID) %>% summarise(mean_diff = mean(diff))
+# % between -10 and 10
+perc <- diff_indyrs_av %>% dplyr::filter(mean_diff > -10 & mean_diff < 10) #920/1663 = 55.3
+# spatial
+diff_indyrs_av_sp <- merge(ctys, diff_indyrs_av, by = "GEOID")
+
+map <- tm_shape(diff_indyrs_av_sp) +
+  tm_polygons(col = "mean_diff", breaks = c(-70,-30,-20,-10,-5,0,5,10,20,30,90), palette = c("#67001F","#B2182B", "#D6604D", "#F4A582", "#FDDBC7", "#D1E5F0" ,"#92C5DE","#4393C3", "#2166AC", "#053061"), border.col = "transparent", title = "Average Error\n(bushels/acre)", legend.hist = TRUE, title = title) +
+  tm_legend(outside = TRUE, hist.width = 1.5) +
+  tm_layout(frame = FALSE,
+            legend.hist.size = 0.5) +
+      tm_shape(frr_final) +
+  tm_borders(col = "black")
+
+map
+
+tmap_save(map, file = paste0('./viz/sp_indyrsRF/spdiff_ave.png'))
+
+```
+
+# Let's visualize observations v. predictions
+```{r}
+cor(diff_indyrs$YIELD, diff_indyrs$PREDICTIONS, method = "pearson")
+
+p <- ggplot(diff_indyrs, aes(x=YIELD, y=PREDICTIONS)) +
+  geom_point(size = 0.5) + 
+  geom_smooth(method=lm, se=FALSE, fullrange=TRUE)+
+  geom_abline(intercept = 0, slope = 1, color="black", 
+                 linetype="dashed", size=0.65) +
+  theme_classic() +
+  xlab("Observed (bushels/acre)") +
+  ylab("Predicted (bushels/acre)") +
+  xlim(1,250) +
+  ylim(0,250) +
+  annotate("text", x = 175.0, y = 40.0, label = "r = 0.89", hjust=0)
+p
+
+ggsave(filename = "./viz/sp_indyrsRF/cor_plot.png", plot = p, dpi = 300, width = 7, height = 7)
+```
+
+# Let's visualize error over time (box and whisker)
+```{r}
+
+diff_indyrs$YEAR <- as.factor(diff_indyrs$YEAR)
+
+bw_diff <- ggplot(diff_indyrs, aes(x = YEAR, y = diff)) +
+  geom_boxplot() +
+  theme_classic() +
+  theme(axis.title = element_text(size = 14),
+        axis.text=element_text(size=11)) +
+  theme(axis.title.x=element_blank(),
+        axis.text.x=element_text(size=9, angle=45, hjust = 1)) +
+  theme(strip.background=element_blank()) +
+  ylab("Distribution of Model Errors (bu/acre)")
+
+bw_diff
+
+ggsave(filename = "./viz/sp_indyrsRF/bw_error.png", plot = bw_diff, dpi = 300, width = 7, height = 5)
+```
+
+# Variable importance graphic ~ Individual Years RF
+```{r}
+imp_2008 <- readRDS("./results/RFimp_2008.RDS")
+imp_2008 <- imp_2008 %>% rename(IncPurity = IncPurity_2008) %>% mutate(YEAR = "2008 - 75.1%",
+                                                                       Prop = IncPurity/sum(IncPurity)*100) 
+imp_2009 <- readRDS("./results/RFimp_2009.RDS")
+imp_2009 <- imp_2009 %>% rename(IncPurity = IncPurity_2009) %>% mutate(YEAR = "2009 - 81.1%",
+                                                                       Prop = IncPurity/sum(IncPurity)*100)
+imp_2010 <- readRDS("./results/RFimp_2010.RDS")
+imp_2010 <- imp_2010 %>% rename(IncPurity = IncPurity_2010) %>% mutate(YEAR = "2010 - 77.0%",
+                                                                       Prop = IncPurity/sum(IncPurity)*100) 
+imp_2011 <- readRDS("./results/RFimp_2011.RDS")
+imp_2011 <- imp_2011 %>% rename(IncPurity = IncPurity_2011) %>% mutate(YEAR = "2011 - 72.5%",
+                                                                       Prop = IncPurity/sum(IncPurity)*100)
+imp_2012 <- readRDS("./results/RFimp_2012.RDS")
+imp_2012 <- imp_2012 %>% rename(IncPurity = IncPurity_2012) %>% mutate(YEAR = "2012 - 79.5%",
+                                                                       Prop = IncPurity/sum(IncPurity)*100)
+imp_2013 <- readRDS("./results/RFimp_2013.RDS")
+imp_2013 <- imp_2013 %>% rename(IncPurity = IncPurity_2013) %>% mutate(YEAR = "2013 - 68.0%",
+                                                                       Prop = IncPurity/sum(IncPurity)*100)
+imp_2014 <- readRDS("./results/RFimp_2014.RDS")
+imp_2014 <- imp_2014 %>% rename(IncPurity = IncPurity_2014) %>% mutate(YEAR = "2014 - 69.8%",
+                                                                       Prop = IncPurity/sum(IncPurity)*100)
+imp_2015 <- readRDS("./results/RFimp_2015.RDS")
+imp_2015 <- imp_2015 %>% rename(IncPurity = IncPurity_2015) %>% mutate(YEAR = "2015 - 72.1%",
+                                                                       Prop = IncPurity/sum(IncPurity)*100)
+imp_2016 <- readRDS("./results/RFimp_2016.RDS")
+imp_2016 <- imp_2016 %>% rename(IncPurity = IncPurity_2016) %>% mutate(YEAR = "2016 - 72.2%",
+                                                                       Prop = IncPurity/sum(IncPurity)*100)
+imp_2017 <- readRDS("./results/RFimp_2017.RDS")
+imp_2017 <- imp_2017 %>% rename(IncPurity = IncPurity_2017) %>% mutate(YEAR = "2017 - 74.1%",
+                                                                       Prop = IncPurity/sum(IncPurity)*100)
+imp_2018 <- readRDS("./results/RFimp_2018.RDS")
+imp_2018 <- imp_2018 %>% rename(IncPurity = IncPurity_2018) %>% mutate(YEAR = "2018 - 73.9%",
+                                                                       Prop = IncPurity/sum(IncPurity)*100)
+
+imp_yrs <- rbind(imp_2008, imp_2009, imp_2010, imp_2011, imp_2012, imp_2013, imp_2014, imp_2015, imp_2016, imp_2017, imp_2018)
+
+imp_yrs$YEAR <- as.factor(imp_yrs$YEAR)
+
+imp_yrs$varfull <- c("Irrigation", "Area cultivated in corn", "Farm resource region", "Mean diurnal range", "Precipitation of the warmest quarter", "Growing degree days", "Shannon's Diversity Index", "Agricultural area", "Total precipitation",  "Mean temperature of the driest quarter", "Temperature seasonality", "Elevation", "Mean temperature of the wettest quarter", "Topsoil cation exchange capacity ~ soil", "Precipitation of the coldest quarter", "Subsoil pH", "Precipitation seasonality",  "Slope", "Topsoil reference bulk density", "Topsoil organic carbon")
+
+imp_year <- imp_yrs %>% 
+  group_by(YEAR) %>% 
+  mutate(prop = IncPurity/sum(IncPurity)*100,
+         stand = IncPurity/max(IncPurity)) %>% 
+  arrange(desc(IncPurity)) %>% 
+  mutate(Rank = 1:20)
+
+imp_yrs <- ggplot(imp_yrs,aes(varfull,YEAR)) +
+  geom_point(aes(size=Prop*0.75), shape = 20, fill = "white") +
+  scale_size_identity() +
+  #scale_color_gradient(low = "grey", high = "black") +
+  theme(axis.text.x=element_text(angle=55,hjust=1,vjust=1)) +
+  ylab("") +
+  xlab("")
+
+ggsave(filename = "./viz/imp_yrs.png", plot = imp_yrs, dpi = 300, width = 7, height = 6)
+
+# size indicates standardized importance by FRR (individual IncPurity/max(IncPurity)) where most important = largest bubble and least important = smallest bubble, color indicates rank order
+imp_year_viz <- ggplot(imp_year,aes(varfull,YEAR)) +
+  geom_point(aes(size=stand*13.5, color = Rank), shape = 20) +
+  scale_size_identity() +
+  #scale_fill_viridis(discrete=TRUE) +
+  scale_color_gradient(low = "grey90", high = "black", trans = "reverse") +
+  theme(axis.text.x=element_text(angle=55,hjust=1,vjust=1)) +
+  ylab("") +
+  xlab("")
+
+ggsave(filename = "./viz/imp_year_standcat.png", plot = imp_year_viz, dpi = 300, width = 7.5, height = 6)
+```
+
+# Reduced FRR-by-FRR RF
+
+# Let's visualize error in yield each year
+```{r}
+# read in data
+preds_1 <- readRDS("./results/RFpreds_1.RDS")
+preds_2 <- readRDS("./results/RFpreds_2.RDS")
+preds_3 <- readRDS("./results/RFpreds_3.RDS")
+preds_4 <- readRDS("./results/RFpreds_4.RDS")
+preds_5 <- readRDS("./results/RFpreds_5.RDS")
+preds_6 <- readRDS("./results/RFpreds_6.RDS")
+preds_7 <- readRDS("./results/RFpreds_7.RDS")
+preds_8 <- readRDS("./results/RFpreds_8.RDS")
+preds_9 <- readRDS("./results/RFpreds_9.RDS")
+
+# build function to build GEOID back into df's
+buildpreds <- function(df) {
+  
+  df <- merge(df, yield_RF_reduced, by = c("YEAR","YIELD", "PERC_IRR","CORN_SQKM","GDD","BV18","BV2", "SDI_CDL_AG","AG_SQKM","BV9","TP","BV4","ELEVATION","BV8","S_PH_H2O","BV19","T_CEC_SOIL","SLOPE","BV15","T_OC"))
+  
+  colnames(df)[22] <- "PREDICTIONS"
+  
+  # Visualize difference between reported yield (YIELD) and predicted yield (PREDICTIONS) across space-time
+diff <- df %>% dplyr::select(c(GEOID, YEAR, YIELD, PREDICTIONS)) %>% mutate(diff = PREDICTIONS - YIELD)
+
+return(diff)
+}
+
+
+df_1 <- buildpreds(preds_1)
+df_1 <- df_1 %>% mutate(FRR = 1,
+                        FRR_NAME = "Heartland")
+df_2 <- buildpreds(preds_2)
+df_2 <- df_2 %>%  mutate(FRR = 2,
+                         FRR_NAME = "Northern Crescent")
+df_3 <- buildpreds(preds_3)
+df_3 <- df_3 %>%  mutate(FRR = 3,
+                         FRR_NAME = "Northern Great Plains")
+df_4 <- buildpreds(preds_4)
+df_4 <- df_4 %>% mutate(FRR = 4,
+                        FRR_NAME = "Prairie Gateway")
+df_5 <- buildpreds(preds_5)
+df_5 <- df_5 %>%  mutate(FRR = 5,
+                         FRR_NAME = "Eastern Uplands")
+df_6 <- buildpreds(preds_6)
+df_6 <- df_6 %>% mutate(FRR = 6,
+                        FRR_NAME = "Southern Seaboard")
+df_7 <- buildpreds(preds_7)
+df_7 <- df_7 %>%  mutate(FRR = 7,
+                         FRR_NAME = "Fruitful Rim")
+df_8 <- buildpreds(preds_8)
+df_8 <- df_8 %>%  mutate(FRR = 8,
+                         FRR_NAME = "Basin & Range")
+df_9 <- buildpreds(preds_9)
+df_9 <- df_9 %>% mutate(FRR = 9,
+                        FRR_NAME = "Mississippi Portal")
+
+diff_indfrrs <- rbind(df_1,df_2,df_3,df_4,df_5,df_6,df_7,df_8,df_9)
+diff_indfrrs_sp <- merge(ctys, diff_indfrrs, by = "GEOID", duplicateGeoms = TRUE)
+
+diff_map <- function(year, breaks, title) {
+  
+  diff_sp <- diff_indfrrs_sp %>% filter(YEAR == year)
+  
+map <- tm_shape(ctys) + tm_polygons(col="grey", border.col = "transparent") + 
+  tm_shape(diff_sp) +
+  tm_polygons(col = "diff", breaks = breaks, palette = c("#67001F","#B2182B", "#D6604D", "#F4A582", "#FDDBC7", "#D1E5F0" ,"#92C5DE","#4393C3", "#2166AC", "#053061"), border.col = "transparent", legend.hist = TRUE, title = title) +
+  tm_legend(outside = TRUE, hist.width = 1.5) +
+  tm_layout(frame = FALSE,
+            legend.hist.size = 0.5) +
+      tm_shape(frr_final) +
+  tm_borders(col = "black")
+
+  # return
+  tmap_save(map, file = paste0('./viz/sp_indfrrsRF/spdiff_',year,'.png'))
+
+}
+
+error_2008 <- diff_map(2008, c(-100,-30,-20,-10,-5,0,5,10,20,30,80), "Error in 2008\n(bushels/acre)")
+error_2009 <- diff_map(2009, c(-60,-30,-20,-10,-5,0,5,10,20,30,50), "Error in 2009\n(bushels/acre)")
+error_2010 <- diff_map(2010, c(-80,-30,-20,-10,-5,0,5,10,20,30,60), "Error in 2010\n(bushels/acre)")
+error_2011 <- diff_map(2011, c(-80,-30,-20,-10,-5,0,5,10,20,30,80), "Error in 2011\n(bushels/acre)")
+error_2012 <- diff_map(2012, c(-70,-30,-20,-10,-5,0,5,10,20,30,100), "Error in 2012\n(bushels/acre)")
+error_2013 <- diff_map(2013, c(-50,-30,-20,-10,-5,0,5,10,20,30,70), "Error in 2013\n(bushels/acre)")
+error_2014 <- diff_map(2014, c(-80,-30,-20,-10,-5,0,5,10,20,30,60), "Error in 2014\n(bushels/acre)")
+error_2015 <- diff_map(2015, c(-60,-30,-20,-10,-5,0,5,10,20,30,60), "Error in 2015\n(bushels/acre)")
+error_2016 <- diff_map(2016, c(-50,-30,-20,-10,-5,0,5,10,20,30,60), "Error in 2016\n(bushels/acre)")
+error_2017 <- diff_map(2017, c(-70,-30,-20,-10,-5,0,5,10,20,30,60), "Error in 2016\n(bushels/acre)")
+error_2018 <- diff_map(2018, c(-60,-30,-20,-10,-5,0,5,10,20,30,70), "Error in 2016\n(bushels/acre)")
+```
+
+# Let's visualize error in yield on average, summarised by county across the country
+```{r}
+diff_indfrrs_av <- diff_indfrrs %>% group_by(GEOID) %>% summarise(mean_diff = mean(diff))
+# % between -10 and 10
+perc <- diff_indfrrs_av %>% dplyr::filter(mean_diff > -10 & mean_diff < 10) #1021/1704 = 60.0
+# spatial
+diff_indfrrs_av_sp <- merge(ctys, diff_indfrrs_av, by = "GEOID")
+
+map <- tm_shape(diff_indfrrs_av_sp) +
+  tm_polygons(col = "mean_diff", breaks = c(-60,-30,-20,-10,-5,0,5,10,20,30,80), palette = c("#67001F","#B2182B", "#D6604D", "#F4A582", "#FDDBC7", "#D1E5F0" ,"#92C5DE","#4393C3", "#2166AC", "#053061"), border.col = "transparent", title = "Average Error\n(bushels/acre)", legend.hist = TRUE, title = title) +
+  tm_legend(outside = TRUE, hist.width = 1.5) +
+  tm_layout(frame = FALSE,
+            legend.hist.size = 0.5) +
+  tm_shape(frr_final) +
+  tm_borders(col = "black")
+map
+
+tmap_save(map, file = paste0('./viz/sp_indfrrsRF/spdiff_ave.png'))
+```
+
+# Let's visualize observations v. predictions
+```{r}
+cor(diff_indfrrs$YIELD, diff_indfrrs$PREDICTIONS, method = "pearson")
+
+p <- ggplot(diff_indfrrs, aes(x=YIELD, y=PREDICTIONS)) +
+  geom_point(size = 0.5) + 
+  geom_smooth(method=lm, se=FALSE, fullrange=TRUE)+
+  geom_abline(intercept = 0, slope = 1, color="black", 
+                 linetype="dashed", size=0.65) +
+  theme_classic() +
+  xlab("Observed (bushels/acre)") +
+  ylab("Predicted (bushels/acre)") +
+  xlim(1,250) +
+  ylim(0,250) +
+  annotate("text", x = 175.0, y = 40.0, label = "r = 0.91", hjust=0)
+p
+
+ggsave(filename = "./viz/sp_indfrrsRF/cor_plot.png", plot = p, dpi = 300, width = 7, height = 7)
+```
+
+# Let's visualize error over time (box and whisker)
+```{r}
+
+diff_indfrrs$FRR_NAME <- as.factor(diff_indfrrs$FRR_NAME)
+
+bw_diff <- ggplot(diff_indfrrs, aes(x = FRR_NAME, y = diff)) +
+  geom_boxplot() +
+  theme_classic() +
+  theme(axis.title = element_text(size = 14),
+        axis.text=element_text(size=11)) +
+  theme(axis.title.x=element_blank(),
+        axis.text.x=element_text(size=9, angle=45, hjust = 1)) +
+  theme(strip.background=element_blank()) +
+  ylab("Distribution of Model Errors (bu/acre)")
+
+bw_diff
+
+ggsave(filename = "./viz/sp_indfrrsRF/bw_error.png", plot = bw_diff, dpi = 300, width = 7, height = 5)
+```
+
+
+# Variable importance graphic ~ Individual FRRs RF
+```{r}
+imp_1 <- readRDS("./results/RFimp_1.RDS")
+imp_1 <- imp_1 %>% rename(IncPurity = IncPurity_1) %>% mutate(FRR = "Heartland - 86.3%")
+
+imp_2 <- readRDS("./results/RFimp_2.RDS")
+imp_2 <- imp_2 %>% rename(IncPurity = IncPurity_2) %>% mutate(FRR = "Northern Crescent - 65.8%")
+
+imp_3 <- readRDS("./results/RFimp_3.RDS")
+imp_3 <- imp_3 %>% rename(IncPurity = IncPurity_3) %>% mutate(FRR = "Northern Great Plains - 79.0%")
+
+imp_4 <- readRDS("./results/RFimp_4.RDS")
+imp_4 <- imp_4 %>% rename(IncPurity = IncPurity_4) %>% mutate(FRR = "Prairie Gateway - 85.9%")
+
+imp_5 <- readRDS("./results/RFimp_5.RDS")
+imp_5 <- imp_5 %>% rename(IncPurity = IncPurity_5) %>% mutate(FRR = "Eastern Uplands - 66.8%")
+
+imp_6 <- readRDS("./results/RFimp_6.RDS")
+imp_6 <- imp_6 %>% rename(IncPurity = IncPurity_6) %>% mutate(FRR = "Southern Seaboard - 70.5%") 
+imp_7 <- readRDS("./results/RFimp_7.RDS")
+imp_7 <- imp_7 %>% rename(IncPurity = IncPurity_7) %>% mutate(FRR = "Fruitful Rim - 80.1%")
+
+imp_8 <- readRDS("./results/RFimp_8.RDS")
+imp_8 <- imp_8 %>% rename(IncPurity = IncPurity_8) %>% mutate(FRR = "Basin and Range - -30.8%")
+
+imp_9 <- readRDS("./results/RFimp_9.RDS")
+imp_9 <- imp_9 %>% rename(IncPurity = IncPurity_9) %>% mutate(FRR = "Mississippi Portal - 78.7%")
+
+imp_frr <- rbind(imp_1, imp_2, imp_3, imp_4, imp_5, imp_6, imp_7, imp_8, imp_9)
+
+imp_frr$FRR <- as.factor(imp_frr$FRR)
+
+imp_frr$varfull <- c("Year", "Irrigation", "Area cultivated in corn", "Mean diurnal range", "Precipitation of the warmest quarter", "Growing degree days", "Shannon's Diversity Index", "Agricultural area", "Total precipitation",  "Mean temperature of the driest quarter", "Temperature seasonality", "Elevation", "Mean temperature of the wettest quarter", "Topsoil cation exchange capacity ~ soil", "Precipitation of the coldest quarter", "Subsoil pH", "Precipitation seasonality",  "Slope", "Topsoil reference bulk density", "Topsoil organic carbon")
+
+
+imp_frr <- imp_frr %>% 
+  group_by(FRR) %>% 
+  mutate(prop = IncPurity/sum(IncPurity)*100,
+         stand = IncPurity/max(IncPurity)) %>% 
+  arrange(desc(IncPurity)) %>% 
+  mutate(Rank = 1:20)
+
+#imp_frr$rank <- as.factor(imp_frr$rank)
+
+# size indicates proprtion of importance where most important = largest bubble and least important = smallest bubble
+imp_frr_viz <- ggplot(imp_frr,aes(varfull,FRR)) +
+  geom_point(aes(size=prop*0.55), shape = 20, fill = "white") +
+  scale_size_identity() +
+  #scale_color_gradient(low = "grey", high = "black") +
+  theme(axis.text.x=element_text(angle=55,hjust=1,vjust=1)) +
+  ylab("") +
+  xlab("")
+
+ggsave(filename = "./viz/imp_frr_proportion.png", plot = imp_frr_viz, dpi = 300, width = 7, height = 6)
+
+# size indicates standardized importance by FRR (individual IncPurity/max(IncPurity)) where most important = largest bubble and least important = smallest bubble
+imp_frr_viz <- ggplot(imp_frr,aes(varfull,FRR)) +
+  geom_point(aes(size=stand*14), shape = 20, fill = "white") +
+  scale_size_identity() +
+  #scale_color_gradient(low = "grey", high = "black") +
+  theme(axis.text.x=element_text(angle=55,hjust=1,vjust=1)) +
+  ylab("") +
+  xlab("")
+
+ggsave(filename = "./viz/imp_frr_standardized.png", plot = imp_frr_viz, dpi = 300, width = 7, height = 6)
+
+# size indicates standardized importance by FRR (individual IncPurity/max(IncPurity)) where most important = largest bubble and least important = smallest bubble, color indicates rank order
+imp_frr_viz <- ggplot(imp_frr,aes(varfull,FRR)) +
+  geom_point(aes(size=stand*14, color = Rank), shape = 20) +
+  scale_size_identity() +
+  #scale_fill_viridis(discrete=TRUE) +
+  scale_color_gradient(low = "grey90", high = "black", trans = "reverse") +
+  theme(axis.text.x=element_text(angle=55,hjust=1,vjust=1)) +
+  ylab("") +
+  xlab("")
+
+ggsave(filename = "./viz/imp_frr_standcat.png", plot = imp_frr_viz, dpi = 300, width = 7.5, height = 6)
+
+
+# size indicates rank where most important = largest bubble and least important = smallest bubble
+#imp_frr_viz <- ggplot(imp_frr,aes(varfull,FRR)) +
+#  geom_point(aes(size=bubble_size*1.25), shape = 20, fill = "white") +
+#  scale_size_identity() +
+  #scale_color_gradient(low = "grey", high = "black") +
+#  theme(axis.text.x=element_text(angle=55,hjust=1,vjust=1)) +
+#  ylab("") +
+#  xlab("")
+
+# ggsave(filename = "./viz/imp_frr_rank.png", plot = imp_frr_viz, dpi = 300, width = 7, height = 6)
+
+# size indicates proportion of importance where most important = largest bubble and least important = smallest bubble, color indicates rank order
+#imp_frr_viz <- ggplot(imp_frr,aes(varfull,FRR)) +
+#  geom_point(aes(size=Prop*0.5, color = Rank), shape = 20) +
+#  scale_size_identity() +
+  #scale_fill_viridis(discrete=TRUE) +
+#  scale_color_gradient(low = "grey90", high = "black", trans = "reverse") +
+#  theme(axis.text.x=element_text(angle=55,hjust=1,vjust=1)) +
+#  ylab("") +
+#  xlab("")
+
+#ggsave(filename = "./viz/imp_frr_categorical.png", plot = imp_frr_viz, dpi = 300, width = 7.5, height = 6)
+```
+ 
+# Bivariate chloropleth (proportion corn acres/ag acres & corn yield) ~ 2017
+```{r}
+yield_dom <- corn_yield %>% dplyr::select(GEOID, YIELD, YEAR, CORN_SQKM, AG_SQKM) %>% group_by(GEOID) %>%  summarise(YIELD = mean(YIELD), mean_corn = mean(CORN_SQKM), mean_ag = mean(AG_SQKM)) %>% mutate(prop_corn = mean_corn/mean_ag)
+
+#first, build plot to show break-points and number of counties in each bin
+#a.v is corn yield = y, p.v. is proportion corn acres = x
+y.v<-quantile(yield_dom$YIELD,c(0.33,0.66,1), na.rm = T)
+p.v<-quantile(yield_dom$prop_corn,c(0.33,0.66,1), na.rm = T)
+
+yield_dom_new <- yield_dom %>% 
+  mutate(y = ifelse(YIELD<y.v[1],1,ifelse(YIELD<y.v[2],2,3)) ,
+                     x= ifelse(prop_corn<p.v[1],1,ifelse(prop_corn<p.v[2],2,3))) 
+
+p <- ggplot(data=yield_dom_new,aes(x=prop_corn,y=YIELD,color=atan(y/x),alpha=x+y))+
+  geom_point(size=1)+  
+  guides(alpha=F,color=F)+
+  geom_hline(yintercept=y.v,color="gray20",linetype=2)+
+  geom_vline(xintercept=p.v,color="gray20",linetype=2)+
+  scale_color_viridis(name="Color scale")+
+  theme_minimal()+
+  theme(plot.caption=element_text(size = 9, hjust=0),
+        panel.grid=element_blank()) +
+  labs(x="Corn dominance on agricultural land",
+       y="Average corn yield (bushels/acre)") 
+p
+
+# Bivariate chloropleth (proportion corn acres/ag acres & corn yield) ~ 2017
+# subset data and create variables
+yield_bivar <- bi_class(yield_dom, x = YIELD, y = prop_corn, style = "quantile", dim = 3)
+
+yield_bivar <- yield_bivar %>% mutate(bi_name = ifelse(bi_class == "1-1", "LYLPC",
+ifelse(bi_class == "1-2", "LYMPC",
+ifelse(bi_class == "1-3", "LYHPC",
+ifelse(bi_class == "2-1", "MYLPC",
+ifelse(bi_class == "2-2", "MYMPC",
+ifelse(bi_class == "2-3", "MYHPC",
+ifelse(bi_class == "3-1", "HYLPC",
+ifelse(bi_class == "3-2", "HYMPC",
+ifelse(bi_class == "3-3", "HYHPC",
+ "NA"))))))))))
+
+yield_bivar$bi_name <- factor(yield_bivar$bi_name, levels = c("LYLPC",
+"LYMPC","LYHPC","MYLPC","MYMPC","MYHPC","HYLPC","HYMPC","HYHPC"))
+
+d_complete <- merge(ctys, yield_bivar, by = "GEOID", all = T)
+library(tmap)
+library(viridisLite)
+
+pal <- viridis(9)
+
+map <- tm_shape(d_complete) +
+  tm_polygons("bi_name",
+    palette = pal, 
+    border.col = "transparent", 
+    legend.show = TRUE) +
+    tm_layout(frame = FALSE,
+            legend.hist.size = 0.5) +
+  tm_shape(frr_final) +
+  tm_borders(col = "black")
+
+map
+
+tmap_save(map, file = paste0('./viz/yield_dom.png'))
+
+```
+
+
+### Pair-wise Correlation Values
+```{r}
+yield_RF_reduced <- corn_yield %>% 
+  dplyr::select(GEOID,YEAR,YIELD,PERC_IRR,CORN_SQKM,FRR,GDD,BV18,BV2,SDI_CDL_AG,AG_SQKM,BV9,TP,BV4,ELEVATION,BV8,S_PH_H2O,BV19,T_CEC_SOIL,SLOPE,BV15,T_OC,T_REF_BULK_DENSITY) 
+pwc <- yield_RF_reduced[c(3:5, 7:23)]
+colnames(pwc)= c("Corn yield", "Irrigation (% ag acres)", "Area cultivated in corn (sq km)", "Growing degree days (C)", "Precipitation of the warmest quarter (mm)", "Mean diurnal range (C)", "Shannon's Diversity Index","Agricultural area (sq km)", "Mean temperature of the warmest quarter (C)", "Total precipitation (mm)", "Temperature seasonality", "Elevation (m)", "Mean temperature of the wettest quarter (C)", "Subsoil pH (-log(H+))", "Precipitation of the coldest quarter (mm)", "Topsoil cation exchange capacity (Cmol/kg)", "Slope", "Precipitation Seasonality", "Topsoil organic carbon (% weight)", "Topsoil reference bulk density (kg/dm3)")
+
+# show correlations
+corr_yield <- round(cor(pwc[1:20]), 2)
+p.mat_yield <- cor_pmat(pwc[c(1:20)])
+corrplot_yield <- ggcorrplot(corr_yield, hc.order = FALSE, p.mat = p.mat_yield, outline.col = "white", type = "lower", insig = "blank",lab = F, ggtheme = ggplot2::theme_minimal, colors = c("#6D9EC1", "white", "#E46726"))
+corrplot_yield
+
+ggsave(filename = "./viz/corrplot.png", plot = corrplot_yield, dpi = 300, width = 7, height = 7)
+```
+
+# Bivariate chloropleth (proportion corn acres/ag acres & corn yield) ~ 2017
+```{r}
+# packages
+library(spdplyr)
+library(viridis)
+library(dplyr)
+library(sp)
+library(tidyverse)
+library(tmap)
+library(rgdal)
+library(RColorBrewer)
+library(rgeos)
+library(ggthemes)
+library(ggalt)
+library(maps)
+library(maptools)
+library(grid)
+install.packages("biscale")
+library(biscale)
+
+# data
+corn_yield <- readRDS("./data/yieldRF.RDS")
+ctys <- readRDS("./data/county.RDS")
+
+# subset data and create variables
+yield_dom <- corn_yield %>% dplyr::select(GEOID, YIELD, YEAR, CORN_SQKM, AG_SQKM) %>% filter(YEAR == 2018) %>% mutate(prop_corn = CORN_SQKM/AG_SQKM)
+yield_dom <- yield_dom[complete.cases(yield_dom),]
+
+yield_bivar <- bi_class(yield_dom, x = YIELD, y = prop_corn, style = "quantile", dim = 3)
+
+yield_bivar <- yield_bivar %>% mutate(bi_name = ifelse(bi_class == "1-1", "LYLPC",
+ifelse(bi_class == "1-2", "LYMPC",
+ifelse(bi_class == "1-3", "LYHPC",
+ifelse(bi_class == "2-1", "MYLPC",
+ifelse(bi_class == "2-2", "MYMPC",
+ifelse(bi_class == "2-3", "MYHPC",
+ifelse(bi_class == "3-1", "HYLPC",
+ifelse(bi_class == "3-2", "HYMPC",
+ifelse(bi_class == "3-3", "HYHPC",
+ "NA"))))))))))
+
+yield_bivar$bi_name <- factor(yield_bivar$bi_name, levels = c("LYLPC",
+"LYMPC","LYHPC","MYLPC","MYMPC","MYHPC","HYLPC","HYMPC","HYHPC"))
+
+d_complete <- merge(ctys, yield_bivar, by = "GEOID", all = T)
+library(tmap)
+library(viridisLite)
+
+pal <- viridis(9)
+
+map <- tm_shape(d_complete) +
+  tm_polygons("bi_name",
+    palette = pal, 
+    border.col = "transparent", 
+    legend.show = FALSE) 
+  #tm_legend(legend.position = c("left", "bottom"))+
+  #tm_layout(inner.margins = c(0.06, 0.10, 0.10, 0.08), legend.title.size = 3,
+         # legend.text.size = 2,
+         # legend.position = c("left","bottom"))
+
+map
+
+```
+
+#Make a JPEG
+```{r}
+jpeg("./yielddom_bivariate.jpg",  
+  width     = 8,
+  height    = 5,
+  units     = "in",
+  res       = 300,
+  pointsize = 4)
+map
+dev.off
+```
+
+
+## Make break-point plot + legend! 
+```{r}
+#first, build plot to show break-points and number of counties in each bin
+#a.v is corn yield = y, p.v. is proportion corn acres = x
+y.v<-quantile(yield_dom$YIELD,c(0.33,0.66,1), na.rm = T)
+p.v<-quantile(yield_dom$prop_corn,c(0.33,0.66,1), na.rm = T)
+
+yield_dom_new <- yield_dom %>% 
+  mutate(y = ifelse(YIELD<y.v[1],1,ifelse(YIELD<y.v[2],2,3)) ,
+                     x= ifelse(prop_corn<p.v[1],1,ifelse(prop_corn<p.v[2],2,3))) 
+
+# build plot from break-points
+p <- ggplot(data=yield_dom_new,aes(x=prop_corn,y=YIELD,color=atan(y/x),alpha=x+y))+
+  geom_point(size=1)+  
+  guides(alpha=F,color=F)+
+  geom_hline(yintercept=y.v,color="gray20",linetype=2)+
+  geom_vline(xintercept=p.v,color="gray20",linetype=2)+
+  scale_color_viridis(name="Color scale")+
+  theme_minimal()+
+  theme(plot.caption=element_text(size = 9, hjust=0),
+        panel.grid=element_blank()) +
+  labs(x="Corn dominance on agricultural land",
+       y="Corn yield (bushels/acre) in 2018") 
+  # limit the range
+  #scale_x_log10(limits=c(1, 20000), breaks=c(p.v),
+  #              labels=round(c(p.v),2)) +
+  #scale_y_log10(limits=c(1,20000),breaks=c(a.v),
+  #              labels=round(c(a.v),2)) 
+p
+
+
+#############################################################################################################
+#### MAP IT!
+#############################################################################################################
+
+# Next, build chlorpleth map
+yielddom_merge <- merge(ctys, yield_dom_new, by = "GEOID", all=T)
+
+# create grid
+d<-expand.grid(x=1:3,y=1:3)
+#dlabel<-data.frame(x=1:3,xlabel=c("X low", "X middle","X High"))
+d<-merge(d,data.frame(x=1:3,xlabel=c("X low", "X middle","X high")),by="x")
+d<-merge(d,data.frame(y=1:3,ylabel=c("Y low", "Y middle","Y high")),by="y")
+
+# build legend
+g.legend<-
+  ggplot(d, aes(x,y,fill=atan(y/x),alpha=x+y,label=paste0(xlabel,"\n",ylabel)))+
+  geom_tile()+
+  scale_fill_viridis()+
+  theme_void()+
+  theme(legend.position = "none", 
+        axis.title=element_text(size=7),
+        panel.background=element_blank(),
+        plot.margin=margin(t=10,b=10,l=10))+
+  labs(x="Corn dominance on agricultural land", 
+       y="Corn yield\n(bushels/acre)")
+       
+g.legend
+```
+
+

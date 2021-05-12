@@ -1,0 +1,414 @@
+---
+title: "Corn Yield Random Forest"
+author: "Britta Schumacher"
+date: "Last updated: `r format(Sys.time(), '%d %B, %Y')`"
+output: 
+  html_document:
+    theme: yeti
+    toc: yes
+    toc_float: true
+    code_folding: hide
+---
+
+# Bring in the data, clean it up, and run the model on the training set
+```{r}
+library(randomForest)
+library(tidyverse)
+library(ggplot2)
+library(caret)
+corn_yield <- readRDS("./data/yieldRF.RDS")
+
+# keep only counties with at least 3 years of data
+sub_id <- corn_yield %>% mutate(count = 1) %>%  group_by(GEOID) %>% summarise(n = sum(count)) %>% filter(n >= 3)
+
+yield <- corn_yield %>% filter(GEOID %in% sub_id$GEOID)
+
+# remove ID variables that aren't included in the model
+yield_RF <- yield %>% dplyr::select(-c(GEOID))
+
+# specify qualitative variables that are factors
+yield_RF$YEAR <- as.factor(yield_RF$YEAR)
+yield_RF$FRR <- as.factor(yield_RF$FRR)
+
+```
+
+# Initial RF
+```{r}
+set.seed(1234) 
+random_rn <- sample(nrow(yield_RF), ceiling(nrow(yield_RF)*.25)) 
+train <- yield_RF[-random_rn,] 
+test <- yield_RF[random_rn,] 
+
+rf_yield <- randomForest(YIELD ~ ., data = train)
+```
+
+
+# Now let's predict on the test set
+```{r}
+preds <- predict(rf_yield, test, type = "response")
+test$PREDICTIONS <- preds
+head(test %>% dplyr::select(PREDICTIONS, YIELD))
+```
+
+# How well did our model do?
+```{r}
+MSE <- mean((test$YIELD - test$PREDICTIONS)^2)
+print(MSE)
+RMSE <- caret::RMSE(test$PREDICTIONS, test$YIELD)
+print(RMSE)
+R2 <- 1 - (sum((test$YIELD - test$PREDICTIONS)^2) / sum((test$YIELD - mean(test$YIELD))^2))
+print(R2)
+pR2 <- 1 - MSE / var(test$YIELD)
+print(pR2)
+```
+
+# What are the most important variables?
+```{r}
+imp <- as.data.frame(varImpPlot(rf_yield))
+```
+
+# Nicer visualization
+```{r}
+imp$varnames <- rownames(imp) # row names to column
+imp$varfull <- c("Year", "Area cultivated in corn", "Agricultural Area", "Shannon's Diversity Index", "Growing degree days", "Total precipitation", "Mean diurnal range", "Temperature seasonality", "Mean temperature of the warmest quarter", "Mean temperature of the driest quarter", "Precipitation seasonality", "Precipitation of the warmest quarter", "Precipitation of the coldest quarter", "Slope", "Elevation", "Subsoil pH", "Topsoil calcium carbonate", "Topsoil gypsum", "Topsoil cation exchange capacity ~ clay", "Topsoil cation exchange capacity ~ soil", "Topsoil sodicity", "Topsoil gravel content", "Topsoil organic carbon", "Topsoil reference bulk density", "Topsoil silt fraction", "Topsoil salinity", "Topsoil sand fraction", "Irrigation", "Farm resource region")
+
+ggplot(imp, aes(x=reorder(varfull, IncNodePurity), y=IncNodePurity)) + 
+  geom_point() +
+  geom_segment(aes(x=varfull,xend=varfull,y=0,yend=IncNodePurity)) +
+  ylab("Increase in node purity") +
+  xlab("") +
+  coord_flip() +
+  theme_minimal()
+```
+
+# Reduced RF - top 21 most important variables (threshold made sense because it includes climate, topo, and the top three important soil characteristics based on expert feedback: T_CEC, T_OC, S_PH)
+```{r}
+# remove variables that contributed least to the full model
+yield_RF_reduced <- yield_RF %>% 
+  dplyr::select(YEAR,YIELD,PERC_IRR,CORN_SQKM,FRR,BV2,BV18,GDD,SDI_CDL_AG,AG_SQKM,TP,BV9,BV4,ELEVATION,BV8,T_CEC_SOIL,BV19,S_PH_H2O,BV15,SLOPE,T_REF_BULK_DENSITY,T_OC)
+
+set.seed(1234) 
+train <- train %>%  dplyr::select(YEAR,YIELD,PERC_IRR,CORN_SQKM,FRR,BV2,BV18,GDD,SDI_CDL_AG,AG_SQKM,TP,BV9,BV4,ELEVATION,BV8,T_CEC_SOIL,BV19,S_PH_H2O,BV15,SLOPE,T_REF_BULK_DENSITY,T_OC)
+saveRDS(train, "./results/train.RDS")
+test <- test %>%  dplyr::select(YEAR,YIELD,PERC_IRR,CORN_SQKM,FRR,BV2,BV18,GDD,SDI_CDL_AG,AG_SQKM,TP,BV9,BV4,ELEVATION,BV8,T_CEC_SOIL,BV19,S_PH_H2O,BV15,SLOPE,T_REF_BULK_DENSITY,T_OC)
+saveRDS(test, "./results/test.RDS")
+rf_yield_reduced <- randomForest(YIELD ~ ., data = train)
+```
+
+# Now let's predict on the test set
+```{r}
+preds_red <- predict(rf_yield_reduced, test, type = "response")
+test$PREDICTIONS <- preds_red
+head(test %>% dplyr::select(PREDICTIONS, YIELD))
+saveRDS(test, file = './results/RFpreds_red.RDS')
+```
+
+# How well did our model do?
+```{r}
+MSE_red <- mean((test$YIELD - test$PREDICTIONS)^2)
+print(MSE_red)
+RMSE_red <- caret::RMSE(test$PREDICTIONS, test$YIELD)
+print(RMSE_red)
+R2_red <- 1 - (sum((test$YIELD - test$PREDICTIONS)^2) / sum((test$YIELD - mean(test$YIELD))^2))
+print(R2_red)
+pR2_red <- 1 - MSE_red / var(test$YIELD)
+print(pR2_red)
+```
+
+MSE barely increases from full to reduced RF.
+
+# What are the most important variables?
+```{r}
+imp_red <- as.data.frame(varImpPlot(rf_yield_reduced))
+```
+
+# Nicer visualization
+```{r}
+imp_red$varnames <- rownames(imp_red) # row names to column
+imp_red$varfull <- c("Year", "Irrigation", "Area cultivated in corn", "Farm resource region", "Mean diurnal range", "Precipitation of the warmest quarter", "Growing degree days", "Shannon's Diversity Index", "Agricultural area", "Total precipitation",  "Mean temperature of the driest quarter", "Temperature seasonality", "Elevation", "Mean temperature of the wettest quarter", "Topsoil cation exchange capacity ~ soil", "Precipitation of the coldest quarter", "Subsoil pH", "Precipitation seasonality",  "Slope", "Topsoil reference bulk density", "Topsoil organic carbon")
+
+imp_red <- imp_red %>%  mutate(Prop = IncNodePurity/sum(IncNodePurity)*100)
+
+saveRDS(imp_red, file = './results/RFimp_red.RDS')
+
+imp_plot <- ggplot(imp_red, aes(x=reorder(varfull, IncNodePurity), y=IncNodePurity)) + 
+  geom_point() +
+  geom_segment(aes(x=varfull,xend=varfull,y=0,yend=IncNodePurity)) +
+  ylab("Increase in node purity") +
+  xlab("") +
+  coord_flip() +
+  theme_minimal()
+
+ggsave(imp_plot, file = './viz/RFimpplot_red.png', dpi = 300, width = 7, height = 7)
+```
+
+# Partial dependence plots
+```{r}
+# year
+partialPlot(rf_yield_reduced,yield_RF_reduced,"YEAR")
+# irrigation
+irrs <- yield_RF_reduced %>% summarise(mean = mean(PERC_IRR), sd = sd(PERC_IRR))
+irrp <- as.data.frame(partialPlot(rf_yield_reduced,yield_RF_reduced,"PERC_IRR"))
+irrp$VAR = "Irrigation (% ag acres)"  
+irrps <- irrp %>% mutate(xs = (x - irrs$mean) / irrs$sd)
+# corn sq km
+corns <- yield_RF_reduced %>% summarise(mean = mean(CORN_SQKM), sd = sd(CORN_SQKM))
+cornp <- as.data.frame(partialPlot(rf_yield_reduced,yield_RF_reduced,"CORN_SQKM"))
+cornp$VAR <- "Area cultivated in corn (sq km)"
+cornps <- cornp %>% mutate(xs = (x - corns$mean) / corns$sd)
+# GDD
+gdds <- yield_RF_reduced %>% summarise(mean = mean(GDD), sd = sd(GDD))
+gddp <- as.data.frame(partialPlot(rf_yield_reduced,yield_RF_reduced,"GDD"))
+gddp$VAR <- "Growing degree days (C)"
+gddps <- gddp %>% mutate(xs = (x - gdds$mean) / gdds$sd)
+# BV18
+bv18s <- yield_RF_reduced %>% summarise(mean = mean(BV18), sd = sd(BV18))
+bv18p <- as.data.frame(partialPlot(rf_yield_reduced,yield_RF_reduced,"BV18"))
+bv18p$VAR <- "Precipitation of warmest quarter (mm)"
+bv18ps <- bv18p %>% mutate(xs = (x - bv18s$mean) / bv18s$sd)
+# BV2
+partialPlot(rf_yield_reduced,yield_RF_reduced,BV2)
+bv2s <- yield_RF_reduced %>% summarise(mean = mean(BV2), sd = sd(BV2))
+bv2p <- as.data.frame(partialPlot(rf_yield_reduced,yield_RF_reduced,"BV2"))
+bv2p$VAR <- "Mean diurnal range (C)"
+bv2ps <- bv2p %>% mutate(xs = (x - bv2s$mean) / bv2s$sd)
+# SDI
+SDIs <- yield_RF_reduced %>% summarise(mean = mean(SDI_CDL_AG), sd = sd(SDI_CDL_AG))
+sdip <- as.data.frame(partialPlot(rf_yield_reduced,yield_RF_reduced,"SDI_CDL_AG"))
+sdip$VAR <- "Shannon's Diversity Index"
+sdips <- sdip %>% mutate(xs = (x - SDIs$mean) / SDIs$sd)
+
+# merge into one dataframe
+pdp <- rbind(irrps,cornps,gddps,bv18ps,bv2ps,sdips)
+
+input_pp <- ggplot(pdp) +   
+  geom_line(aes(x = xs, y = y, color = VAR), size = 1.2) + 
+  theme_classic() +
+  theme(legend.title = element_blank(), legend.position = "bottom" ) + 
+  scale_colour_manual(values=c("#336633", "#99CC99", "#CC6633", "#4A7DA5", "#99CCFF", "#CCCC99")) +
+  labs(x = "Standardized values",        
+       y = "Predicted Yield (bu/acre)") +   
+  theme(text = element_text(size=12)) 
+
+input_pp
+
+ggsave(input_pp, file = './viz/RFpdp_multiple.png', dpi = 300)
+```
+
+# Reduced RF (NO FRR or YEAR) - top 19 most important variables (threshold made sense because it includes climate, topo, and the top three important soil characteristics based on expert feedback: T_CEC, T_OC, S_PH)
+```{r}
+# remove variables that contributed least to the full model
+train_subfrryr <- train %>% dplyr::select(-c(FRR,YEAR))
+test_subfrryr <- test %>% dplyr::select(-c(FRR,YEAR))
+
+rf_yield_subfrryr <- randomForest(YIELD ~ ., data = train_subfrryr)
+```
+
+# Now let's predict on the test set
+```{r}
+preds_subfrryr <- predict(rf_yield_subfrryr, test_subfrryr, type = "response")
+test_subfrryr$PREDICTIONS <- preds_subfrryr
+head(test_subfrryr %>% dplyr::select(PREDICTIONS, YIELD))
+```
+
+
+# How well did our model do?
+```{r}
+MSE_subfrryr <- mean((test_subfrryr$YIELD - test_subfrryr$PREDICTIONS)^2)
+print(MSE_subfrryr)
+RMSE_subfrryr <- caret::RMSE(test_subfrryr$PREDICTIONS, test_subfrryr$YIELD)
+print(RMSE_subfrryr)
+R2_subfrryr <- 1 - (sum((test_subfrryr$YIELD - test_subfrryr$PREDICTIONS)^2) / sum((test_subfrryr$YIELD - mean(test_subfrryr$YIELD))^2))
+print(R2_subfrryr)
+pR2_subfrryr <- 1 - MSE_subfrryr / var(test_subfrryr$YIELD)
+print(pR2_subfrryr)
+```
+
+
+# What are the most important variables?
+```{r}
+imp_subfrryr <- as.data.frame(varImpPlot(rf_yield_subfrryr))
+```
+
+# Nicer visualization
+```{r}
+imp_subfrryr$varnames <- rownames(imp_subfrryr) # row names to column
+imp_subfrryr
+imp_subfrryr$varfull <- c("Irrigation", "Area cultivated in corn", "Mean diurnal range", "Precipitation of the warmest quarter", "Growing degree days", "Shannon's Diversity Index", "Agricultural area", "Total precipitation",  "Mean temperature of the driest quarter", "Temperature seasonality", "Elevation", "Mean temperature of the wettest quarter", "Topsoil cation exchange capacity ~ soil", "Precipitation of the coldest quarter", "Subsoil pH", "Precipitation seasonality",  "Slope", "Topsoil reference bulk density", "Topsoil organic carbon")
+imp_subfrryr <- imp_subfrryr %>%  mutate(Prop = IncNodePurity/sum(IncNodePurity)*100)
+
+saveRDS(imp_subfrryr, file = './results/RFimp_subfrryr.RDS')
+
+imp_plot <- ggplot(imp_subfrryr, aes(x=reorder(varfull, IncNodePurity), y=IncNodePurity)) + 
+  geom_point() +
+  geom_segment(aes(x=varfull,xend=varfull,y=0,yend=IncNodePurity)) +
+  ylab("Increase in node purity") +
+  xlab("") +
+  coord_flip() +
+  theme_minimal()
+
+ggsave(imp_plot, file = './viz/RFimpplot_subfrryr.png', dpi = 300, width = 7, height = 7)
+```
+
+# Subset RFs by year
+```{r}
+# remove variables that contributed least to the full model
+rf_year <- function(year) {
+  
+  #index
+  index <- year
+  
+  # build data
+  yield_RF <- yield_RF_reduced %>% 
+  filter(YEAR == year) %>% 
+  dplyr::select(-c(YEAR))
+  
+  # build training and test sets
+  set.seed(1234) 
+  random_rn <- sample(nrow(yield_RF), ceiling(nrow(yield_RF)*.25)) 
+  train <- yield_RF[-random_rn,] 
+  test <- yield_RF[random_rn,] 
+  
+  sum_stat <- test %>% 
+    summarise(mean = mean(YIELD),
+           median = median(YIELD),
+           sd = sd(YIELD))
+  
+  # build RF on training data
+  rf_yield <- randomForest(YIELD ~ ., data = train)
+  rf_yield
+  
+  # build predictions on test set
+  preds <- predict(rf_yield, test, type = "response")
+  test$PREDICTIONS <- preds
+  
+  # build MSE/RMSE
+  MSE <- mean((test$YIELD - test$PREDICTIONS)^2)
+  RMSE <- caret::RMSE(test$PREDICTIONS, test$YIELD)
+  R2 <- 1 - (sum((test$YIELD - test$PREDICTIONS)^2)/sum((test$YIELD - mean(test$YIELD))^2))
+  pR2 <- 1 - MSE / var(test$YIELD)
+  
+  # build clean dataframe
+  colnames(test)[1] <- paste0('YIELD_',index)
+  colnames(test)[22] <- paste0('PREDS_',index)
+  
+  # importance plots
+  imp <- as.data.frame(importance(rf_yield))
+  imp$varnames <- rownames(imp) # row names to column
+  
+  imp_plot <- ggplot(imp, aes(x=reorder(varnames, IncNodePurity), y=IncNodePurity)) + 
+  geom_point() +
+  geom_segment(aes(x=varnames,xend=varnames,y=0,yend=IncNodePurity)) +
+  ylab("Increase in node purity") +
+  xlab("") +
+  coord_flip() +
+  theme_minimal()
+  
+  colnames(imp)[1] <- paste0('IncPurity_',index)
+  
+  # build argument to feed save, below
+  list <- list("MSE" = MSE, "RMSE" = RMSE, "R2" = R2, "pR2" = pR2, "var_exp" = rf_yield)
+  
+  # return
+  saveRDS(test, file = paste0('./results/RFpreds_',index,'.RDS'))
+  saveRDS(imp, file = paste0('./results/RFimp_',index,'.RDS'))
+  saveRDS(sum_stat, file = paste0('./results/ss_',index,'.RDS'))
+  ggsave(imp_plot, file = paste0('./viz/RFimpplot_',index,'.png'))
+  return(list)
+
+}
+
+rf_2008 <- rf_year(2008)
+rf_2009 <- rf_year(2009)
+rf_2010 <- rf_year(2010)
+rf_2011 <- rf_year(2011)
+rf_2012 <- rf_year(2012)
+rf_2013 <- rf_year(2013)
+rf_2014 <- rf_year(2014)
+rf_2015 <- rf_year(2015)
+rf_2016 <- rf_year(2016)
+rf_2017 <- rf_year(2017)
+rf_2018 <- rf_year(2018)
+```
+
+
+# Subset RFs by FRR
+```{r}
+# remove variables that contributed least to the full model
+rf_frr <- function(frr) {
+  
+  #index
+  index <- frr
+  
+  # build data
+  yield_RF <- yield_RF_reduced %>% 
+  filter(FRR == frr) %>% 
+  dplyr::select(-c(FRR))
+  
+  # build training and test sets
+  set.seed(1234) 
+  random_rn <- sample(nrow(yield_RF), ceiling(nrow(yield_RF)*.25)) 
+  train <- yield_RF[-random_rn,] 
+  test <- yield_RF[random_rn,] 
+  
+  sum_stat <- test %>% 
+  summarise(mean = mean(YIELD),
+           median = median(YIELD),
+           sd = sd(YIELD))
+    
+  # build RF on training data
+  rf_yield <- randomForest(YIELD ~ ., data = train)
+  rf_yield
+  
+  # build predictions on test set
+  preds <- predict(rf_yield, test, type = "response")
+  test$PREDICTIONS <- preds
+  
+  # build MSE/RMSE
+  MSE <- mean((test$YIELD - test$PREDICTIONS)^2)
+  RMSE <- caret::RMSE(test$PREDICTIONS, test$YIELD)
+  R2 <- 1 - (sum((test$YIELD - test$PREDICTIONS)^2) / sum((test$YIELD - mean(test$YIELD))^2))
+  pR2 <- 1 - MSE / var(test$YIELD)
+  
+  # build clean dataframe
+  colnames(test)[22] <- paste0('PREDS_',index)
+  test <- test %>% mutate(FRR = paste0('FRR',index))
+  
+  # importance plots
+  imp <- as.data.frame(importance(rf_yield))
+  imp$varnames <- rownames(imp) # row names to column
+  
+  imp_plot <- ggplot(imp, aes(x=reorder(varnames, IncNodePurity), y=IncNodePurity)) + 
+  geom_point() +
+  geom_segment(aes(x=varnames,xend=varnames,y=0,yend=IncNodePurity)) +
+  ylab("Increase in node purity") +
+  xlab("") +
+  coord_flip() +
+  theme_minimal()
+    
+  colnames(imp)[1] <- paste0('IncPurity_',index)
+  
+  # build argument to feed save, below
+  list <- list("MSE" = MSE, "RMSE" = RMSE, "R2" = R2, "pR2" = pR2, "var_exp" = rf_yield, "pR2" = pR2)
+  
+  # return
+  saveRDS(test, file = paste0('./results/RFpreds_',index,'.RDS'))
+  saveRDS(imp, file = paste0('./results/RFimp_',index,'.RDS'))
+  saveRDS(sum_stat, file = paste0('./results/ss_',index,'.RDS'))
+  ggsave(imp_plot, file = paste0('./viz/RFimpplot_',index,'.png'))
+  return(list)
+
+}
+
+rf_1 <- rf_frr(1)
+rf_2 <- rf_frr(2)
+rf_3 <- rf_frr(3)
+rf_4 <- rf_frr(4)
+rf_5 <- rf_frr(5)
+rf_6 <- rf_frr(6)
+rf_7 <- rf_frr(7)
+rf_8 <- rf_frr(8)
+rf_9 <- rf_frr(9)
+
+#test <- RFpreds_8 %>% select(YIELD, PREDS_8)
+```
