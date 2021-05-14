@@ -18,13 +18,8 @@ library(ggplot2)
 library(caret)
 corn_yield <- readRDS("./data/yieldRF.RDS")
 
-# keep only counties with at least 3 years of data
-sub_id <- corn_yield %>% mutate(count = 1) %>%  group_by(GEOID) %>% summarise(n = sum(count)) %>% filter(n >= 3)
-
-yield <- corn_yield %>% filter(GEOID %in% sub_id$GEOID)
-
 # remove ID variables that aren't included in the model
-yield_RF <- yield %>% dplyr::select(-c(GEOID))
+yield_RF <- corn_yield %>% dplyr::select(-c(GEOID))
 
 # specify qualitative variables that are factors
 yield_RF$YEAR <- as.factor(yield_RF$YEAR)

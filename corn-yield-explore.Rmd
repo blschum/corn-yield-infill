@@ -1,25 +1,93 @@
 ---
-title: "yield-explore"
+title: "Explore the Corn Yield Data"
 author: "Britta Schumacher"
-date: "January 18, 2021"
-output: html_document
+date: "Last updated: `r format(Sys.time(), '%d %B, %Y')`"
+output: 
+  html_document:
+    theme: yeti
+    toc: yes
+    toc_float: true
+    code_folding: hide
 ---
 
 ```{r}
 library(tidyverse)
-## Reduce panel to only counties where yield is reported in a county-year
-yield <- readRDS("./data/yield-modeling-panel.RDS")
-yield <- as.data.frame(yield)
+yield <- readRDS("./data-raw/yield-modeling-panel.RDS")
+
+yr_df <- yield %>% select(GEOID, YEAR)
+
 cty <- readRDS("./data/county.RDS")
 cty <- as.data.frame(cty)
 coterm <- yield %>% filter(GEOID %in% cty$GEOID) # check
 
-  
-yield <- yield %>% filter(!is.na(YIELD)) # reduces to 17038 unique county-year observations
+# bring in extra coa variables of interest
+coa <- readRDS("./data-raw/BSDS_standatt_operated.RDS")
 
-y_missing <- coterm %>% filter(GEOID %in% yield$GEOID)
+human <- coa %>% select(GEOID, county, year, chem, fert, labor_expense, machinery, insur_acres, gvt_prog, exp, occup, tenant, acres_per_op) %>% 
+  filter(year == 2017 | year == 2012 | year == 2007) %>% rename(YEAR = year)
 
-y_count <- yield %>% mutate(count = 1) %>% group_by(GEOID) %>% summarize(count = sum(count))
+human <- merge(human, yr_df, by = c("GEOID","YEAR"), all = TRUE)
+
+test <- human %>% 
+  filter(YEAR == c(2007:2012)) %>% 
+  group_by(GEOID) %>% 
+mutate(chem=ifelse(is.na(chem),mean(chem,na.rm=TRUE),chem),
+       fert=ifelse(is.na(fert),mean(fert,na.rm=TRUE),fert),
+       labor_expense=ifelse(is.na(labor_expense),mean(labor_expense,na.rm=TRUE),labor_expense),
+       machinery=ifelse(is.na(machinery),mean(machinery,na.rm=TRUE),machinery),
+       insur_acres=ifelse(is.na(insur_acres),mean(insur_acres,na.rm=TRUE),insur_acres),
+       gvt_prog=ifelse(is.na(gvt_prog),mean(gvt_prog,na.rm=TRUE),gvt_prog),
+       exp=ifelse(is.na(exp),mean(exp,na.rm=TRUE),exp),
+       occup=ifelse(is.na(occup),mean(occup,na.rm=TRUE),occup),
+       tenant=ifelse(is.na(tenant),mean(tenant,na.rm=TRUE),tenant),
+       acres_per_op=ifelse(is.na(acres_per_op),mean(acres_per_op,na.rm=TRUE),acres_per_op)) %>% 
+  fill(county, .direction = "down") %>% 
+  filter(YEAR != 2012)
+
+test2 <- human %>% 
+  filter(YEAR == 2012 | YEAR == 2013 | YEAR == 2014 | YEAR == 2015 | YEAR == 2016 | YEAR == 2017) %>% 
+  group_by(GEOID) %>% 
+mutate(chem=ifelse(is.na(chem),mean(chem,na.rm=TRUE),chem),
+       fert=ifelse(is.na(fert),mean(fert,na.rm=TRUE),fert),
+       labor_expense=ifelse(is.na(labor_expense),mean(labor_expense,na.rm=TRUE),labor_expense),
+       machinery=ifelse(is.na(machinery),mean(machinery,na.rm=TRUE),machinery),
+       insur_acres=ifelse(is.na(insur_acres),mean(insur_acres,na.rm=TRUE),insur_acres),
+       gvt_prog=ifelse(is.na(gvt_prog),mean(gvt_prog,na.rm=TRUE),gvt_prog),
+       exp=ifelse(is.na(exp),mean(exp,na.rm=TRUE),exp),
+       occup=ifelse(is.na(occup),mean(occup,na.rm=TRUE),occup),
+       tenant=ifelse(is.na(tenant),mean(tenant,na.rm=TRUE),tenant),
+       acres_per_op=ifelse(is.na(acres_per_op),mean(acres_per_op,na.rm=TRUE),acres_per_op)) %>% 
+  fill(county, .direction = "down") 
+
+
+test3 <- human %>% 
+  filter(YEAR == 2017 | YEAR == 2018) %>% 
+  group_by(GEOID) %>% 
+mutate(chem=ifelse(is.na(chem),mean(chem,na.rm=TRUE),chem),
+       fert=ifelse(is.na(fert),mean(fert,na.rm=TRUE),fert),
+       labor_expense=ifelse(is.na(labor_expense),mean(labor_expense,na.rm=TRUE),labor_expense),
+       machinery=ifelse(is.na(machinery),mean(machinery,na.rm=TRUE),machinery),
+       insur_acres=ifelse(is.na(insur_acres),mean(insur_acres,na.rm=TRUE),insur_acres),
+       gvt_prog=ifelse(is.na(gvt_prog),mean(gvt_prog,na.rm=TRUE),gvt_prog),
+       exp=ifelse(is.na(exp),mean(exp,na.rm=TRUE),exp),
+       occup=ifelse(is.na(occup),mean(occup,na.rm=TRUE),occup),
+       tenant=ifelse(is.na(tenant),mean(tenant,na.rm=TRUE),tenant),
+       acres_per_op=ifelse(is.na(acres_per_op),mean(acres_per_op,na.rm=TRUE),acres_per_op)) %>%
+  fill(county, .direction = "down") %>% 
+  filter(YEAR == 2018)
+
+h <- rbind(test, test2, test3)
+
+# how many counties report yield? 
+y_present <- coterm %>% filter(!is.na(YIELD)) # reduces to 17038 unique county-year observations
+saveRDS(y_present, "./data/true-train.RDS")
+
+# how many counties are missing yield?
+y_missing <- coterm %>% filter(is.na(YIELD)) # 17150
+saveRDS(y_missing, "./data/true-test-infillobs.RDS")
+
+# for counties reporting yield, 
+y_count <- coterm %>% group_by(GEOID) %>% filter(!is.na(YIELD)) %>% summarise(sum = sum(length(YIELD)))
 ```
 ```
 
