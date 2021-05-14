@@ -1,0 +1,25 @@
+---
+title: "yield-explore"
+author: "Britta Schumacher"
+date: "January 18, 2021"
+output: html_document
+---
+
+```{r}
+library(tidyverse)
+## Reduce panel to only counties where yield is reported in a county-year
+yield <- readRDS("./data/yield-modeling-panel.RDS")
+yield <- as.data.frame(yield)
+cty <- readRDS("./data/county.RDS")
+cty <- as.data.frame(cty)
+coterm <- yield %>% filter(GEOID %in% cty$GEOID) # check
+
+  
+yield <- yield %>% filter(!is.na(YIELD)) # reduces to 17038 unique county-year observations
+
+y_missing <- coterm %>% filter(GEOID %in% yield$GEOID)
+
+y_count <- yield %>% mutate(count = 1) %>% group_by(GEOID) %>% summarize(count = sum(count))
+```
+```
+
