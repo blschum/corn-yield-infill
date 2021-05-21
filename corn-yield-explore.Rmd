@@ -13,6 +13,7 @@ output:
 ```{r}
 library(tidyverse)
 yield <- readRDS("./data-raw/yield-modeling-panel.RDS")
+yield <- yield %>% mutate(perc_corn = CORN_SQKM/AG_SQKM*100)
 
 yr_df <- yield %>% select(GEOID, YEAR)
 

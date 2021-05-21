@@ -24,7 +24,7 @@ library(ggcorrplot)
 
 ## Reduce panel to only counties where yield is reported in a county-year
 ```{r, message=F, warning=F }
-yield <- readRDS("./data/yield-modeling-panel.RDS")
+yield <- readRDS("./data/true-train.RDS")
 yield <- as.data.frame(yield)
 
 yield <- yield %>% filter(!is.na(YIELD)) # reduces to 17038 unique county-year observations
@@ -49,7 +49,8 @@ yield <- yield %>% dplyr::select(-c("PHASE1", "DRAINAGE", "T_USDA_TEX_CLASS", "T
 ```{r }
 #BV3 is a direct product of BV2 and BV7
 #BV7 is a direct product of BV5 and BV6
-yield <- yield %>% dplyr::select(-c("BV3", "BV7"))
+# perc_corn = CORN_SQKM/AG_SQKM*100
+yield <- yield %>% dplyr::select(-c("BV3", "BV7", "AG_SQKM", "CORN_SQKM"))
 
 ```
 
@@ -104,7 +105,7 @@ EB: NA
 library(ggcorrplot)
 # visualize by "natural" groupings of variables
 # second, climate -- 
-climate <- yield[c(5:6,46:62)]
+climate <- yield[c(5:6,44:60)]
 corr_clim <- round(cor(climate[c(1:19)]), 2)
 p.mat_clim <- cor_pmat(climate[c(1:19)])
 corrplot_clim <- ggcorrplot(corr_clim, hc.order = FALSE, p.mat = p.mat_clim, outline.col = "white", type = "lower", insig = "blank",lab = F, ggtheme = ggplot2::theme_minimal, colors = c("#6D9EC1", "white", "#E46726"))
@@ -202,9 +203,9 @@ KS: NA
 
 ### Pull together all variables we are keeping
 ```{r}
-yield_keep <- yield %>% dplyr::select(c(GEOID,YEAR,YIELD,CORN_SQKM,AG_SQKM,SDI_CDL_AG,GDD,TP,BV2,BV4,BV8,BV9,BV15,BV18,BV19,SLOPE,ELEVATION,S_PH_H2O,T_CACO3,T_CASO4,T_CEC_CLAY,T_CEC_SOIL,T_ESP,T_GRAVEL,T_OC,T_REF_BULK_DENSITY,T_SILT,T_ECE,T_SAND,PERC_IRR,FRR))
+yield_keep <- yield %>% dplyr::select(c(GEOID,YEAR,YIELD,SDI_CDL_AG,GDD,TP,BV2,BV4,BV8,BV9,BV15,BV18,BV19,SLOPE,ELEVATION,S_PH_H2O,T_CACO3,T_CASO4,T_CEC_CLAY,T_CEC_SOIL,T_ESP,T_GRAVEL,T_OC,T_REF_BULK_DENSITY,T_SILT,T_ECE,T_SAND,PERC_IRR,FRR,perc_corn))
 
-saveRDS(yield_keep, "./out/yieldRF.RDS")
+saveRDS(yield_keep, "./data/yieldRF.RDS")
 ```
 
 ### Pair-wise Correlation Values
@@ -219,6 +220,9 @@ corr_yield <- round(cor(yield_keep[c(4:30)]), 2)
 p.mat_yield <- cor_pmat(yield_keep[c(4:30)])
 corrplot_yield <- ggcorrplot(corr_yield, hc.order = FALSE, p.mat = p.mat_yield, outline.col = "white", type = "lower", insig = "blank",lab = F, ggtheme = ggplot2::theme_minimal, colors = c("#6D9EC1", "white", "#E46726"))
 corrplot_yield
+
+yield_keep_corr <- as.data.frame(as.table(cor(yield_keep[c(4:30)]), 1))
+yield_keep_corr
 ```
 
 ###Remove collinear variables
