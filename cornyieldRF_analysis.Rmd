@@ -144,6 +144,16 @@ imp_plot <- ggplot(imp_red, aes(x=reorder(varfull, IncNodePurity), y=IncNodePuri
 
 #ggsave(imp_plot, file = './viz/RFimpplot_red.png', dpi = 300, width = 7, height = 7)
 ```
+# Tune RF
+```{r}
+control <- trainControl(method="repeatedcv", number=10, repeats=3, search="grid")
+set.seed(1234)
+tunegrid <- expand.grid(.mtry=c(3:12))
+rf_gridsearch <- train(YIELD~., data=train, method="rf", metric="MSE", tuneGrid=tunegrid, trControl=control)
+print(rf_gridsearch)
+plot(rf_gridsearch)
+
+```
 
 # Partial dependence plots
 ```{r}
@@ -196,21 +206,6 @@ input_pp <- ggplot(pdp) +
 input_pp
 
 ggsave(input_pp, file = './viz/RFpdp_multiple.png', dpi = 300)
-```
-
-# Tune RF
-```{r}
-random_rn <- sample(nrow(yield_RF), ceiling(nrow(yield_RF)*.25)) 
-train <- yield_RF[-random_rn,] 
-test <- yield_RF[random_rn,] 
-
-control <- trainControl(method="repeatedcv", number=10, repeats=3, search="grid")
-set.seed(1234)
-tunegrid <- expand.grid(.mtry=c(1:15))
-rf_gridsearch <- train(YIELD~., data=train, method="rf", metric="MSE", tuneGrid=tunegrid, trControl=control)
-print(rf_gridsearch)
-plot(rf_gridsearch)
-
 ```
 
 
