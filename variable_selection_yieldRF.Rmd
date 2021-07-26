@@ -1,5 +1,5 @@
 ---
-title: "Variable Selection: RFs w/biovars, HWSD, & CDL"
+title: "Variable Selection: RFs w/biovars, HWSD, CDL, & farm(er) characteristics"
 author: "Britta Schumacher"
 date: "Last updated: `r format(Sys.time(), '%d %B, %Y')`"
 output: 
@@ -22,15 +22,22 @@ library(tidyverse)
 library(ggcorrplot)
 ```
 
-## Reduce panel to only counties where yield is reported in a county-year
+### Reduce panel to only counties where yield is reported in a county-year
 ```{r, message=F, warning=F }
 yield <- readRDS("./data/true-train.RDS")
 yield <- as.data.frame(yield)
 
-yield <- yield %>% filter(!is.na(YIELD)) # reduces to 17038 unique county-year observations
+yield <- yield %>% filter(!is.na(YIELD)) # reduces to 16983 unique county-year observations
+
+# add farm(er) characteristics
+farm <- readRDS("./data/farm-er-interp.RDS")
+
+farm <- farm %>% select(!county)
+
+yield <- merge(yield, farm, by = c("GEOID", "YEAR"))
 ```
 
-## Variable selection  
+# Variable selection  
 ```{r, message=F, warning=F}
 #find % available
 data_avail <- yield %>%
@@ -95,10 +102,6 @@ Drop:
 - ^T_USDA_TEX_CLASS
 
 (^) Variables that do not match the elimination Emily did.
-
-See variables removed by KS/EB that I did not remove, below:
-
-EB: NA
 
 ### Pair-Wise Correlation Matrix ~ Climate
 ```{r, warning=F, message=F}
@@ -201,27 +204,47 @@ EB: NA
 
 KS: NA
 
-### Pull together all variables we are keeping
+### Pair-Wise Correlation Matrix ~ farm(er) characteristics
+```{r, warning=F, message=F}
+# visualize by "natural" groupings of variables
+# fourth, farm(er) characteristics -- 
+farm <- yield[c(61:71)]
+corr_farm <- round(cor(farm[c(1:11)]), 2)
+p.mat_farm <- cor_pmat(farm[c(1:11)])
+corrplot_farm <- ggcorrplot(corr_farm, hc.order = FALSE, p.mat = p.mat_farm, outline.col = "white", type = "lower", insig = "blank",lab = F, ggtheme = ggplot2::theme_minimal, colors = c("#6D9EC1", "white", "#E46726"))
+corrplot_farm
+
+# see initial correlations
+red_farm <- as.data.frame(as.table(cor(farm[c(1:11)]), 1))
+red_farm <- red_farm %>%  filter(Freq != 1) %>% mutate(aFreq = abs(Freq)) %>% arrange(desc(aFreq)) %>% filter(aFreq > 0.80) %>% dplyr::select(c(Var1, Var2, Freq))
+
+#knitr::kable(red_farm, caption = "Farm(er) variable pairs with high correlation")
+
+# all of these variables are essentially trying to say the same thing; let's keep SDI, cause it's what is most commonly used in the literature
+farm_quant <- as.data.frame(farm[c(1:11)])
+farm_final_variables <- c("perc_corn","chem","fert","labor_expense","machinery","insur_acres","gvt_prog","exp","occup","tenant","acres_per_op")
+```
+
+## Pull together all variables we are keeping
 ```{r}
-yield_keep <- yield %>% dplyr::select(c(GEOID,YEAR,YIELD,SDI_CDL_AG,GDD,TP,BV2,BV4,BV8,BV9,BV15,BV18,BV19,SLOPE,ELEVATION,S_PH_H2O,T_CACO3,T_CASO4,T_CEC_CLAY,T_CEC_SOIL,T_ESP,T_GRAVEL,T_OC,T_REF_BULK_DENSITY,T_SILT,T_ECE,T_SAND,PERC_IRR,FRR,perc_corn))
+yield_keep <- yield %>% dplyr::select(c(GEOID,YEAR,YIELD,SDI_CDL_AG,GDD,TP,BV2,BV4,BV8,BV9,BV15,BV18,BV19,SLOPE,ELEVATION,S_PH_H2O,T_CACO3,T_CASO4,T_CEC_CLAY,T_CEC_SOIL,T_ESP,T_GRAVEL,T_OC,T_REF_BULK_DENSITY,T_SILT,T_ECE,T_SAND,PERC_IRR,FRR,perc_corn,chem,fert,labor_expense,machinery,insur_acres,gvt_prog,exp,occup,tenant,acres_per_op))
 
 saveRDS(yield_keep, "./data/yieldRF.RDS")
 ```
 
-### Pair-wise Correlation Values
-
+## Pair-wise Correlation Values of Initial Variable Selection
 ```{r}
-red <- as.data.frame(as.table(cor(yield_keep[4:30]), 1))
+red <- as.data.frame(as.table(cor(yield_keep[4:40]), 1))
 red <- red %>% filter(Freq != 1) %>% mutate(aFreq = abs(Freq)) %>% arrange(desc(aFreq)) %>% filter(aFreq > 0.80) %>% dplyr::select(c(Var1, Var2, Freq))
 
 # show correlations
 yield_keep <- yield_keep[complete.cases(yield_keep), ]
-corr_yield <- round(cor(yield_keep[c(4:30)]), 2)
-p.mat_yield <- cor_pmat(yield_keep[c(4:30)])
+corr_yield <- round(cor(yield_keep[c(4:40)]), 2)
+p.mat_yield <- cor_pmat(yield_keep[c(4:40)])
 corrplot_yield <- ggcorrplot(corr_yield, hc.order = FALSE, p.mat = p.mat_yield, outline.col = "white", type = "lower", insig = "blank",lab = F, ggtheme = ggplot2::theme_minimal, colors = c("#6D9EC1", "white", "#E46726"))
 corrplot_yield
 
-yield_keep_corr <- as.data.frame(as.table(cor(yield_keep[c(4:30)]), 1))
+yield_keep_corr <- as.data.frame(as.table(cor(yield_keep[c(4:40)]), 1))
 yield_keep_corr
 ```
 
