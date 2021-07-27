@@ -18,10 +18,12 @@ library(ggplot2)
 library(caret)
 library(ie2misc)
 library(MLmetrics)
+
+# pull in TRUE train data; all data with recorded yield
 corn_yield <- readRDS("./data/yieldRF.RDS")
 
 # remove ID variables that aren't included in the model
-yield_RF <- corn_yield %>% dplyr::select(-c(GEOID))
+yield_RF <- corn_yield %>% dplyr::select(-c(GEOID, 30:40))
 
 # specify qualitative variables that are factors
 yield_RF$YEAR <- as.factor(yield_RF$YEAR)
@@ -30,6 +32,8 @@ yield_RF$FRR <- as.factor(yield_RF$FRR)
 ```
 
 # Initial RF
+
+Default parameters ~ mtry = 3, ntree = 500
 ```{r}
 set.seed(1234) 
 random_rn <- sample(nrow(yield_RF), ceiling(nrow(yield_RF)*.25)) 
@@ -70,7 +74,7 @@ imp <- as.data.frame(varImpPlot(rf_yield))
 # Nicer visualization
 ```{r}
 imp$varnames <- rownames(imp) # row names to column
-imp$varfull <- c("Year", "Shannon's Diversity Index", "Growing degree days", "Total precipitation", "Mean diurnal range", "Temperature seasonality", "Mean temperature of the warmest quarter", "Mean temperature of the driest quarter", "Precipitation seasonality", "Precipitation of the warmest quarter", "Precipitation of the coldest quarter", "Slope", "Elevation", "Subsoil pH", "Topsoil calcium carbonate", "Topsoil gypsum", "Topsoil cation exchange capacity ~ clay", "Topsoil cation exchange capacity ~ soil", "Topsoil sodicity", "Topsoil gravel content", "Topsoil organic carbon", "Topsoil reference bulk density", "Topsoil silt fraction", "Topsoil salinity", "Topsoil sand fraction", "Irrigation", "Farm resource region", "Percent Area Cultivated in Corn")
+imp$varfull <- c("Year", "Shannon's Diversity Index", "Growing degree days", "Total precipitation", "Mean diurnal range", "Temperature seasonality", "Mean temperature of the warmest quarter", "Mean temperature of the driest quarter", "Precipitation seasonality", "Precipitation of the warmest quarter", "Precipitation of the coldest quarter", "Slope", "Elevation", "Subsoil pH", "Topsoil calcium carbonate", "Topsoil gypsum", "Topsoil cation exchange capacity ~ clay", "Topsoil cation exchange capacity ~ soil", "Topsoil sodicity", "Topsoil gravel content", "Topsoil organic carbon", "Topsoil reference bulk density", "Topsoil silt fraction", "Topsoil salinity", "Topsoil sand fraction", "Irrigation", "Farm resource region")
 
 ggplot(imp, aes(x=reorder(varfull, IncNodePurity), y=IncNodePurity)) + 
   geom_point() +
@@ -81,15 +85,15 @@ ggplot(imp, aes(x=reorder(varfull, IncNodePurity), y=IncNodePurity)) +
   theme_minimal()
 ```
 
-# Reduced RF - top 20 most important variables (threshold made sense because it includes climate, topo, and the top three important soil characteristics based on expert feedback: T_CEC, T_OC, S_PH)
+# Reduced RF - top 19 most important variables (threshold made sense because it includes climate, topo, and the top three important soil characteristics based on expert feedback: T_CEC, T_OC, S_PH)
 ```{r}
 # remove variables that contributed least to the full model
 yield_RF_reduced <- yield_RF %>% 
-  dplyr::select(YEAR,YIELD,PERC_IRR,FRR,perc_corn,GDD,BV2,BV18,SDI_CDL_AG,BV9,BV4,ELEVATION,TP,SLOPE,BV8,BV19,S_PH_H2O,BV15,T_CEC_SOIL,T_REF_BULK_DENSITY,T_OC)
+  dplyr::select(YEAR,YIELD,PERC_IRR,FRR,GDD,BV2,BV18,SDI_CDL_AG,BV9,BV4,TP,ELEVATION,S_PH_H2O,SLOPE,BV8,BV19,T_CEC_SOIL,BV15,T_REF_BULK_DENSITY,T_OC)
 
-train <- train %>%  dplyr::select(YEAR,YIELD,PERC_IRR,FRR,perc_corn,GDD,BV2,BV18,SDI_CDL_AG,BV9,BV4,ELEVATION,TP,SLOPE,BV8,BV19,S_PH_H2O,BV15,T_CEC_SOIL,T_REF_BULK_DENSITY,T_OC)
+train <- train %>%  dplyr::select(YEAR,YIELD,PERC_IRR,FRR,GDD,BV2,BV18,SDI_CDL_AG,BV9,BV4,TP,ELEVATION,S_PH_H2O,SLOPE,BV8,BV19,T_CEC_SOIL,BV15,T_REF_BULK_DENSITY,T_OC)
 
-test <- test %>%  dplyr::select(YEAR,YIELD,PERC_IRR,FRR,perc_corn,GDD,BV2,BV18,SDI_CDL_AG,BV9,BV4,ELEVATION,TP,SLOPE,BV8,BV19,S_PH_H2O,BV15,T_CEC_SOIL,T_REF_BULK_DENSITY,T_OC)
+test <- test %>%  dplyr::select(YEAR,YIELD,PERC_IRR,FRR,GDD,BV2,BV18,SDI_CDL_AG,BV9,BV4,TP,ELEVATION,S_PH_H2O,SLOPE,BV8,BV19,T_CEC_SOIL,BV15,T_REF_BULK_DENSITY,T_OC)
 
 rf_yield_reduced <- randomForest(YIELD ~ ., data = train)
 ```
@@ -128,7 +132,7 @@ imp_red <- as.data.frame(varImpPlot(rf_yield_reduced))
 # Nicer visualization
 ```{r}
 imp_red$varnames <- rownames(imp_red) # row names to column
-imp_red$varfull <- c("Year", "Irrigation", "Farm resource region", "Percent Area Cultivated in Corn", "Growing Degree Days", "Mean diurnal range", "Precipitation of the warmest quarter", "Shannon's Diversity Index", "Mean temperature of the driest quarter", "Temperature seasonality", "Elevation", "Total precipitation", "Slope", "Mean temperature of the wettest quarter", "Precipitation of the coldest quarter", "Subsoil pH", "Precipitation seasonality",  "Topsoil cation exchange capacity ~ soil", "Topsoil reference bulk density", "Topsoil organic carbon")
+imp_red$varfull <- c("Year", "Irrigation", "Farm resource region", "Growing Degree Days", "Mean diurnal range", "Precipitation of the warmest quarter", "Shannon's Diversity Index", "Mean temperature of the driest quarter", "Temperature seasonality", "Elevation", "Total precipitation", "Slope", "Mean temperature of the wettest quarter", "Precipitation of the coldest quarter", "Subsoil pH", "Precipitation seasonality",  "Topsoil cation exchange capacity ~ soil", "Topsoil reference bulk density", "Topsoil organic carbon")
 
 imp_red <- imp_red %>%  mutate(Prop = IncNodePurity/sum(IncNodePurity)*100)
 
@@ -142,17 +146,128 @@ imp_plot <- ggplot(imp_red, aes(x=reorder(varfull, IncNodePurity), y=IncNodePuri
   coord_flip() +
   theme_minimal()
 
+imp_plot
+
 #ggsave(imp_plot, file = './viz/RFimpplot_red.png', dpi = 300, width = 7, height = 7)
 ```
 # Tune RF
-```{r}
-control <- trainControl(method="repeatedcv", number=10, repeats=3, search="grid")
-set.seed(1234)
-tunegrid <- expand.grid(.mtry=c(3:12))
-rf_gridsearch <- train(YIELD~., data=train, method="rf", metric="MSE", tuneGrid=tunegrid, trControl=control)
-print(rf_gridsearch)
-plot(rf_gridsearch)
 
+Default mtry = p/3 (so 19/3); but tuning suggests that mtry = 11 minimizing cross-validated RMSE!
+```{r evaluate = FALSE}
+control <- trainControl(method="repeatedcv", 
+                        number=10, 
+                        repeats=3, 
+                        search="grid")
+set.seed(1234)
+
+tunegrid <- expand.grid(.mtry=c(1:12))
+
+rf_gridsearch <- train(YIELD~., data=train, 
+                       method="rf", 
+                       metric='RMSE', 
+                       ntree = 2000,
+                       tuneGrid=tunegrid,
+                       trControl = control)
+print(rf_gridsearch)
+
+jpeg("./viz/rf-tune-mtry.jpeg", height = 4, width = 6, units = "in", res = 400)
+plot(rf_gridsearch)
+dev.off()
+
+ggsave(plot=rf_tune_mtry, "./viz/rf-tune-mtry.jpeg", dpi = 400, device = 'jpeg')
+
+```
+Random Forest 
+
+12737 samples
+   19 predictor
+
+No pre-processing
+Resampling: Cross-Validated (10 fold, repeated 3 times) 
+Summary of sample sizes: 11463, 11463, 11464, 11463, 11462, 11464, ... 
+Resampling results across tuning parameters:
+
+  mtry  RMSE      Rsquared   MAE     
+   1    30.08711  0.6442456  23.84962
+   2    21.61608  0.7622326  16.78247
+   3    19.18015  0.7934285  14.70176
+   4    18.48832  0.8016640  14.10895
+   5    18.22066  0.8042397  13.87249
+   6    18.10367  0.8048134  13.76500
+   7    18.02260  0.8051778  13.68915
+   8    17.97065  0.8051751  13.64230
+   9    17.93063  0.8052253  13.60744
+  10    17.93072  0.8044584  13.59464
+  11    17.91163  0.8043202  13.57528
+  12    17.92377  0.8034832  13.57159
+
+RMSE was used to select the optimal model using the smallest value.
+The final value used for the model was mtry = 11.
+
+# RF variable importance with various mtry levels
+```{r evaluate = FALSE}
+# remove variables that contributed least to the full model
+rf_mtry <- function(mtry) {
+  
+  #index
+  index <- mtry
+  
+  # build RF on training data
+  set.seed(1234) 
+  rf_yield <- randomForest(YIELD ~ ., data = train, mtry = index, ntree = 2000)
+  rf_yield
+  
+  # build predictions on test set
+  preds <- predict(rf_yield, test, type = "response")
+  test$PREDICTIONS <- preds
+  
+  # build MSE/RMSE
+  RMSE <- caret::RMSE(test$PREDICTIONS, test$YIELD)
+  R2 <- 1 - (sum((test$YIELD - test$PREDICTIONS)^2)/sum((test$YIELD - mean(test$YIELD))^2))
+  
+  # build clean dataframe
+  colnames(test)[2] <- paste0('YIELD_',index)
+  colnames(test)[21] <- paste0('PREDS_',index)
+  
+  # importance plots
+  imp <- as.data.frame(importance(rf_yield))
+  imp$varnames <- rownames(imp) # row names to column
+  
+  colnames(imp)[1] <- paste0('IncPurity_',index)
+  
+  # build argument to feed save, below
+  list <- list("RMSE" = RMSE, "R2" = R2, "var_exp" = rf_yield)
+  
+  # return
+  saveRDS(imp, file = paste0('./results-imp/RFimp_',index,'.RDS'))
+  return(list)
+
+}
+
+rf_mtry_1 <- rf_mtry(1)
+rf_mtry_1
+rf_mtry_2 <- rf_mtry(2)
+rf_mtry_2
+rf_mtry_3 <- rf_mtry(3)
+rf_mtry_3
+rf_mtry_4 <- rf_mtry(4)
+rf_mtry_4
+rf_mtry_5 <- rf_mtry(5)
+rf_mtry_5
+rf_mtry_6 <- rf_mtry(6)
+rf_mtry_6
+rf_mtry_7 <- rf_mtry(7)
+rf_mtry_7
+rf_mtry_8 <- rf_mtry(8)
+rf_mtry_8
+rf_mtry_9 <- rf_mtry(9)
+rf_mtry_9
+rf_mtry_10 <- rf_mtry(10)
+rf_mtry_10
+rf_mtry_11 <- rf_mtry(11)
+rf_mtry_11
+rf_mtry_12 <- rf_mtry(12)
+rf_mtry_12
 ```
 
 # Partial dependence plots
