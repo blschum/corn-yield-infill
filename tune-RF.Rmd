@@ -1,0 +1,160 @@
+---
+title: "Tune Corn Yield Random Forest: Biophysical & Farm(er)"
+author: "Britta Schumacher"
+date: "Last updated: `r format(Sys.time(), '%d %B, %Y')`"
+output: 
+  html_document:
+    theme: yeti
+    toc: yes
+    toc_float: true
+    code_folding: hide
+---
+
+# Bring in the data, clean it up, and run the model on the training set
+```{r packages and data}
+library(randomForest)
+library(tidyverse)
+library(ggplot2)
+library(caret)
+library(ie2misc)
+library(MLmetrics)
+
+# pull in TRUE train data; all data with recorded yield
+corn_yield <- readRDS("./data/yieldRF.RDS")
+
+# remove ID variables that aren't included in the model
+yield_RF <- corn_yield %>% dplyr::select(-c(GEOID))
+
+# specify qualitative variables that are factors
+yield_RF$YEAR <- as.factor(yield_RF$YEAR)
+yield_RF$FRR <- as.factor(yield_RF$FRR)
+
+```
+
+# Build training and test sets for: all data, pruned biophysical data, and pruned farm(er) data
+```{r train and test}
+set.seed(1234) 
+random_rn <- sample(nrow(yield_RF), ceiling(nrow(yield_RF)*.25)) 
+train_fullset <- yield_RF[-random_rn,] 
+test_fullset <- yield_RF[random_rn,] 
+
+# biophysical
+train <- train_fullset %>% select(YEAR,YIELD,PERC_IRR,FRR,GDD,BV2,BV18,SDI_CDL_AG,BV9,BV4,TP,ELEVATION,S_PH_H2O,SLOPE,BV8,BV19,T_CEC_SOIL,BV15,T_REF_BULK_DENSITY,T_OC)
+test <- test_fullset %>% select(YEAR,YIELD,PERC_IRR,FRR,GDD,BV2,BV18,SDI_CDL_AG,BV9,BV4,TP,ELEVATION,S_PH_H2O,SLOPE,BV8,BV19,T_CEC_SOIL,BV15,T_REF_BULK_DENSITY,T_OC)
+
+# farmer
+farmer_train <- train_fullset %>% select(YEAR,YIELD,PERC_IRR,FRR,GDD,BV2,BV18,SDI_CDL_AG,BV9,BV4,TP,ELEVATION,S_PH_H2O,SLOPE,BV8,BV19,T_CEC_SOIL,BV15,T_REF_BULK_DENSITY,T_OC,29:39)
+farmer_test <- test_fullset %>% select(YEAR,YIELD,PERC_IRR,FRR,GDD,BV2,BV18,SDI_CDL_AG,BV9,BV4,TP,ELEVATION,S_PH_H2O,SLOPE,BV8,BV19,T_CEC_SOIL,BV15,T_REF_BULK_DENSITY,T_OC,29:39)
+```
+
+# Tune Biophysical RF
+```{r tune biophysical RF, evaluate = FALSE}
+control <- trainControl(method="repeatedcv", 
+                        number=10, 
+                        repeats=3, 
+                        search="grid")
+set.seed(1234)
+
+tunegrid <- expand.grid(.mtry=c(1:12))
+
+rf_gridsearch <- train(YIELD~., data=train, 
+                       method="rf", 
+                       metric='RMSE', 
+                       ntree = 2000,
+                       tuneGrid=tunegrid,
+                       trControl = control)
+print(rf_gridsearch)
+
+jpeg("./viz/rf-tune-mtry2.jpeg", height = 4, width = 6, units = "in", res = 400)
+plot(rf_gridsearch)
+dev.off()
+```
+
+# Biophysical RF variable importance with various mtry levels
+```{r biophysical RF variable importance, evaluate = FALSE}
+# remove variables that contributed least to the full model
+rf_mtry <- function(mtry) {
+  
+  #index
+  index <- mtry
+  
+  # build RF on training data
+  set.seed(1234) 
+  rf_yield <- randomForest(YIELD ~ ., data = train, mtry = index, ntree = 2000)
+  rf_yield
+  
+  # build predictions on test set
+  preds <- predict(rf_yield, test, type = "response")
+  test$PREDICTIONS <- preds
+  
+  # build MSE/RMSE
+  RMSE <- caret::RMSE(test$PREDICTIONS, test$YIELD)
+  R2 <- 1 - (sum((test$YIELD - test$PREDICTIONS)^2)/sum((test$YIELD - mean(test$YIELD))^2))
+  
+  # build clean dataframe
+  colnames(test)[2] <- paste0('YIELD_',index)
+  colnames(test)[21] <- paste0('PREDS_',index)
+  
+  # importance plots
+  imp <- as.data.frame(importance(rf_yield))
+  imp$varnames <- rownames(imp) # row names to column
+  
+  colnames(imp)[1] <- paste0('IncPurity_',index)
+  
+  # build argument to feed save, below
+  list <- list("RMSE" = RMSE, "R2" = R2, "var_exp" = rf_yield)
+  
+  # return
+  saveRDS(imp, file = paste0('./results-imp/RFimp_',index,'.RDS'))
+  return(list)
+
+}
+
+rf_mtry_1 <- rf_mtry(1)
+rf_mtry_1
+rf_mtry_2 <- rf_mtry(2)
+rf_mtry_2
+rf_mtry_3 <- rf_mtry(3)
+rf_mtry_3
+rf_mtry_4 <- rf_mtry(4)
+rf_mtry_4
+rf_mtry_5 <- rf_mtry(5)
+rf_mtry_5
+rf_mtry_6 <- rf_mtry(6)
+rf_mtry_6
+rf_mtry_7 <- rf_mtry(7)
+rf_mtry_7
+rf_mtry_8 <- rf_mtry(8)
+rf_mtry_8
+rf_mtry_9 <- rf_mtry(9)
+rf_mtry_9
+rf_mtry_10 <- rf_mtry(10)
+rf_mtry_10
+rf_mtry_11 <- rf_mtry(11)
+rf_mtry_11
+rf_mtry_12 <- rf_mtry(12)
+rf_mtry_12
+```
+
+# Tune Farm(er) RF
+```{r tune farmer RF}
+control <- trainControl(method="repeatedcv", 
+                        number=10, 
+                        repeats=3, 
+                        search="grid")
+set.seed(1234)
+
+tunegrid <- expand.grid(.mtry=c(5:25))
+
+rf_farmer_gridsearch <- train(YIELD~., data=farmer_train, 
+                       method="rf", 
+                       metric='RMSE', 
+                       ntree = 2000,
+                       tuneGrid=tunegrid,
+                       trControl = control)
+print(rf_farmer_gridsearch)
+
+jpeg("./viz/rf-farmer-tune-mtry.jpeg", height = 4, width = 6, units = "in", res = 400)
+plot(rf_farmer_gridsearch)
+dev.off()
+```
