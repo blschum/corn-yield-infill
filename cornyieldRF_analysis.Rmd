@@ -23,7 +23,7 @@ library(MLmetrics)
 corn_yield <- readRDS("./data/yieldRF.RDS")
 
 # remove ID variables that aren't included in the model
-yield_RF <- corn_yield %>% dplyr::select(-c(GEOID, 30:40))
+yield_RF <- corn_yield %>% dplyr::select(-c(GEOID))
 
 # specify qualitative variables that are factors
 yield_RF$YEAR <- as.factor(yield_RF$YEAR)
@@ -37,9 +37,14 @@ Default parameters ~ mtry = 3, ntree = 500
 ```{r}
 set.seed(1234) 
 random_rn <- sample(nrow(yield_RF), ceiling(nrow(yield_RF)*.25)) 
-train <- yield_RF[-random_rn,] 
-test <- yield_RF[random_rn,] 
+train_fullset <- yield_RF[-random_rn,] 
+test_fullset <- yield_RF[random_rn,] 
 
+# biophysical
+train <- train_fullset %>% select(-c(29:39))
+test <- test_fullset %>% select(-c(29:39))
+
+# biophysical
 rf_yield <- randomForest(YIELD ~ ., data = train)
 ```
 
@@ -150,9 +155,9 @@ imp_plot
 
 #ggsave(imp_plot, file = './viz/RFimpplot_red.png', dpi = 300, width = 7, height = 7)
 ```
-# Tune RF
+# Tune Biophysical RF
 
-Default mtry = p/3 (so 19/3); but tuning suggests that mtry = 11 minimizing cross-validated RMSE!
+Default mtry = p/3 (so 19/3); but tuning suggests that mtry = 12 minimizing cross-validated RMSE!
 ```{r evaluate = FALSE}
 control <- trainControl(method="repeatedcv", 
                         number=10, 
@@ -229,7 +234,7 @@ Resampling results across tuning parameters:
 RMSE was used to select the optimal model using the smallest value.
 The final value used for the model was mtry = 12.
 
-# RF variable importance with various mtry levels
+# Biophysical RF variable importance with various mtry levels
 ```{r evaluate = FALSE}
 # remove variables that contributed least to the full model
 rf_mtry <- function(mtry) {
@@ -294,6 +299,102 @@ rf_mtry_11
 rf_mtry_12 <- rf_mtry(12)
 rf_mtry_12
 ```
+# Tune Farm(er) RF
+
+Default mtry = p/3 (so 30/3); but tuning suggests that mtry = 12 minimizing cross-validated RMSE!
+```{r evaluate = FALSE}
+
+farmer <- train_fullset %>% 
+  dplyr::select(YEAR,YIELD,PERC_IRR,FRR,GDD,BV2,BV18,SDI_CDL_AG,BV9,BV4,TP,ELEVATION,S_PH_H2O,SLOPE,BV8,BV19,T_CEC_SOIL,BV15,T_REF_BULK_DENSITY,T_OC,29:39)
+  
+control <- trainControl(method="repeatedcv", 
+                        number=10, 
+                        repeats=3, 
+                        search="grid")
+set.seed(1234)
+
+tunegrid <- expand.grid(.mtry=c(4:20))
+
+rf_farmer_gridsearch <- train(YIELD~., data=farmer, 
+                       method="rf", 
+                       metric='RMSE', 
+                       ntree = 2000,
+                       tuneGrid=tunegrid,
+                       trControl = control)
+print(rf_farmer_gridsearch)
+
+jpeg("./viz/rf-farmer-tune-mtry.jpeg", height = 4, width = 6, units = "in", res = 400)
+plot(rf_farmer_gridsearch)
+dev.off()
+
+```
+
+# Bring in data, again
+```{r}
+# pull in TRUE train data; all data with recorded yield
+corn_yield <- readRDS("./data/yieldRF.RDS")
+
+# remove ID variables that aren't included in the model
+yield_RF <- corn_yield %>% dplyr::select(-c(GEOID, 30:40))
+
+# specify qualitative variables that are factors
+yield_RF$YEAR <- as.factor(yield_RF$YEAR)
+yield_RF$FRR <- as.factor(yield_RF$FRR)
+
+# reduced variable set
+yield_RF_bioph <- yield_RF %>% 
+  dplyr::select(YEAR,YIELD,PERC_IRR,FRR,GDD,BV2,BV18,SDI_CDL_AG,BV9,BV4,TP,ELEVATION,S_PH_H2O,SLOPE,BV8,BV19,T_CEC_SOIL,BV15,T_REF_BULK_DENSITY,T_OC)
+
+# bring in true test
+truetest <- readRDS("./data/true-test-infillobs.RDS")
+
+infill_bioph <- truetest %>% 
+  dplyr::select(YEAR,YIELD,PERC_IRR,FRR,GDD,BV2,BV18,SDI_CDL_AG,BV9,BV4,TP,ELEVATION,S_PH_H2O,SLOPE,BV8,BV19,T_CEC_SOIL,BV15,T_REF_BULK_DENSITY,T_OC)
+```
+
+
+# Iterations
+```{r}
+for (iter in 1:100){
+  cat(paste('iter = ', iter, ':: '))
+  
+  # build training and test sets, iteratively
+  random_rn <- sample(nrow(yield_RF_bioph), ceiling(nrow(yield_RF_bioph)*.25)) 
+  train <- yield_RF_bioph[-random_rn,] 
+  test <- yield_RF[random_rn,] 
+  
+  # save the summary statistics for each test set
+  sum_stat <- test %>% 
+  summarise(mean = mean(YIELD),
+           median = median(YIELD),
+           sd = sd(YIELD))
+  
+  # train the model
+  rf <- randomForest(YIELD ~ ., data = train)
+  
+  # test the model
+  preds <- predict(rf, test, type = "response")
+  test$PREDICTIONS <- preds
+
+  # performance on test set
+  RMSE <- caret::RMSE(test$PREDICTIONS, test$YIELD)
+  R2 <- 1 - (sum((test$YIELD - test$PREDICTIONS)^2) / sum((test$YIELD - mean(test$YIELD))^2))
+  
+  # build argument to feed save, below
+  list <- list("RMSE" = RMSE, "R2" = R2, "var_exp" = rf_yield)
+  print(list)
+  
+  # variable importance
+  imp <- as.data.frame(varImpPlot(rf))
+  colnames(imp)[1] <- paste0('IncPurity_',iter)
+  
+  # save .csv's
+  write.csv(test, file = paste0('./results-preds/RFpreds_',iter,'.csv'))
+  write.csv(imp, file = paste0('./results-imp/RFimp_',iter,'.csv'))
+  write.csv(sum_stat, file = paste0('./results-ss/ss_',iter,'.csv'))
+
+}
+```
 
 # Partial dependence plots
 ```{r}
@@ -348,106 +449,11 @@ input_pp
 ggsave(input_pp, file = './viz/RFpdp_multiple.png', dpi = 300)
 ```
 
+---
 
-# Test iterations
-```{r}
-for (iter in 1:2){
-  cat(paste('iter = ', iter, ':: '))
-  
-  # build training and test sets, iteratively
-  random_rn <- sample(nrow(yield_RF), ceiling(nrow(yield_RF)*.25)) 
-  train <- yield_RF[-random_rn,] 
-  test <- yield_RF[random_rn,] 
-  
-  # save the summary statistics for each test set
-  sum_stat <- test %>% 
-  summarise(mean = mean(YIELD),
-           median = median(YIELD),
-           sd = sd(YIELD))
-  
-  # train the model
-  rf <- randomForest(YIELD ~ ., data = train)
-  
-  # test the model
-  preds <- predict(rf, test, type = "response")
-  test$PREDICTIONS <- preds
+# Potential Trash Below
 
-  # performance on test set
-  RMSE <- caret::RMSE(test$PREDICTIONS, test$YIELD)
-  R2 <- 1 - (sum((test$YIELD - test$PREDICTIONS)^2) / sum((test$YIELD - mean(test$YIELD))^2))
-  
-  # build argument to feed save, below
-  list <- list("RMSE" = RMSE, "R2" = R2, "var_exp" = rf_yield)
-  print(list)
-  
-  # variable importance
-  imp <- as.data.frame(varImpPlot(rf))
-  colnames(imp)[1] <- paste0('IncPurity_',iter)
-  
-  # save .csv's
-  write.csv(test, file = paste0('./results-preds/RFpreds_',iter,'.csv'))
-  write.csv(imp, file = paste0('./results-imp/RFimp_',iter,'.csv'))
-  write.csv(sum_stat, file = paste0('./results-ss/ss_',iter,'.csv'))
-
-}
-```
-
-# Reduced RF (NO FRR or YEAR) - top 19 most important variables (threshold made sense because it includes climate, topo, and the top three important soil characteristics based on expert feedback: T_CEC, T_OC, S_PH)
-```{r}
-# remove variables that contributed least to the full model
-train_subfrryr <- train %>% dplyr::select(-c(FRR,YEAR))
-test_subfrryr <- test %>% dplyr::select(-c(FRR,YEAR))
-
-rf_yield_subfrryr <- randomForest(YIELD ~ ., data = train_subfrryr)
-```
-
-# Now let's predict on the test set
-```{r}
-preds_subfrryr <- predict(rf_yield_subfrryr, test_subfrryr, type = "response")
-test_subfrryr$PREDICTIONS <- preds_subfrryr
-head(test_subfrryr %>% dplyr::select(PREDICTIONS, YIELD))
-```
-
-
-# How well did our model do?
-```{r}
-MSE_subfrryr <- mean((test_subfrryr$YIELD - test_subfrryr$PREDICTIONS)^2)
-print(MSE_subfrryr)
-RMSE_subfrryr <- caret::RMSE(test_subfrryr$PREDICTIONS, test_subfrryr$YIELD)
-print(RMSE_subfrryr)
-R2_subfrryr <- 1 - (sum((test_subfrryr$YIELD - test_subfrryr$PREDICTIONS)^2) / sum((test_subfrryr$YIELD - mean(test_subfrryr$YIELD))^2))
-print(R2_subfrryr)
-pR2_subfrryr <- 1 - MSE_subfrryr / var(test_subfrryr$YIELD)
-print(pR2_subfrryr)
-```
-
-
-# What are the most important variables?
-```{r}
-imp_subfrryr <- as.data.frame(varImpPlot(rf_yield_subfrryr))
-```
-
-# Nicer visualization
-```{r}
-imp_subfrryr$varnames <- rownames(imp_subfrryr) # row names to column
-imp_subfrryr
-imp_subfrryr$varfull <- c("Irrigation", "Area cultivated in corn", "Mean diurnal range", "Precipitation of the warmest quarter", "Growing degree days", "Shannon's Diversity Index", "Agricultural area", "Total precipitation",  "Mean temperature of the driest quarter", "Temperature seasonality", "Elevation", "Mean temperature of the wettest quarter", "Topsoil cation exchange capacity ~ soil", "Precipitation of the coldest quarter", "Subsoil pH", "Precipitation seasonality",  "Slope", "Topsoil reference bulk density", "Topsoil organic carbon")
-imp_subfrryr <- imp_subfrryr %>%  mutate(Prop = IncNodePurity/sum(IncNodePurity)*100)
-
-saveRDS(imp_subfrryr, file = './results/RFimp_subfrryr.RDS')
-
-imp_plot <- ggplot(imp_subfrryr, aes(x=reorder(varfull, IncNodePurity), y=IncNodePurity)) + 
-  geom_point() +
-  geom_segment(aes(x=varfull,xend=varfull,y=0,yend=IncNodePurity)) +
-  ylab("Increase in node purity") +
-  xlab("") +
-  coord_flip() +
-  theme_minimal()
-
-ggsave(imp_plot, file = './viz/RFimpplot_subfrryr.png', dpi = 300, width = 7, height = 7)
-```
-
-# Subset RFs by year
+### Subset RFs by year
 ```{r}
 # remove variables that contributed least to the full model
 rf_year <- function(year) {
@@ -529,7 +535,7 @@ rf_2018 <- rf_year(2018)
 ```
 
 
-# Subset RFs by FRR
+### Subset RFs by FRR
 ```{r}
 # remove variables that contributed least to the full model
 rf_frr <- function(frr) {

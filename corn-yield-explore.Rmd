@@ -215,6 +215,7 @@ na_count <- sapply(h, function(x) sum(is.na(x)))
 # SAVE INTERPOLATED DATA
 saveRDS(h, "./data/farm-er-interp.RDS")
 
+h <- readRDS("./data/farm-er-interp.RDS")
 ```
 
 ## Yield data
