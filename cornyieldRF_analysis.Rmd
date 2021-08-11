@@ -22,7 +22,7 @@ library(MLmetrics)
 # pull in TRUE train data; all data with recorded yield
 corn_yield <- readRDS("./data/yieldRF.RDS")
 
-# remove ID variables that aren't included in the model
+# remove ID variables that aren't included in the model, GEOID
 yield_RF <- corn_yield %>% dplyr::select(-c(GEOID))
 
 # specify qualitative variables that are factors
