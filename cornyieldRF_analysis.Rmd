@@ -156,10 +156,14 @@ imp_plot
 #ggsave(imp_plot, file = './viz/RFimpplot_red.png', dpi = 300, width = 7, height = 7)
 ```
 
-# Bring in data, again, for biophysical models with parameters from tune-RF.Rmd
+# Biophysical RFs
+
+## Bring in data, again, for biophysical models with parameters from tune-RF.Rmd
 ```{r}
 # pull in TRUE train data; all data with recorded yield
 corn_yield <- readRDS("./data/yieldRF.RDS")
+corn_bioph <- corn_yield %>% 
+  dplyr::select(GEOID,YEAR,YIELD,PERC_IRR,FRR,GDD,BV2,BV18,SDI_CDL_AG,BV9,BV4,TP,ELEVATION,S_PH_H2O,SLOPE,BV8,BV19,T_CEC_SOIL,BV15,T_REF_BULK_DENSITY,T_OC)
 
 # specify qualitative variables that are factors
 yield_RF$YEAR <- as.factor(yield_RF$YEAR)
@@ -190,7 +194,7 @@ infill_bioph <- truetest %>%
 ```
 
 
-# Iterations
+## Iterations
 ```{r}
 set.seed(1234)
 
@@ -230,6 +234,35 @@ for (iter in 1:100){
 
 }
 ```
+
+## Take the average of the results for n = 100 RFs
+```{r}
+library(tidyverse)
+# build full list of files and bring them into the R environment
+prediction <- list.files(path="results-preds", 
+                         pattern=".RDS", full.names=T, all.files=T) %>% 
+  map_dfr(readRDS) 
+
+prediction <- merge(prediction, corn_bioph, by = c("YEAR","YIELD","PERC_IRR","FRR","GDD","BV2","BV18","SDI_CDL_AG","BV9","BV4","TP","ELEVATION","S_PH_H2O","SLOPE","BV8","BV19","T_CEC_SOIL","BV15","T_REF_BULK_DENSITY","T_OC"))
+
+library(tidyverse)
+prediction_summary <- prediction %>% 
+  mutate(FRR = as.numeric(FRR)) %>% 
+  dplyr::group_by(GEOID, YEAR) %>% 
+  summarise(across(everything(), list(mean)))
+
+# overall performance
+# performance on test set
+  RMSE <- caret::RMSE(prediction_summary$PREDICTIONS, prediction_summary$YIELD)
+  R2 <- 1 - (sum((prediction_summary$YIELD - prediction_summary$PREDICTIONS)^2) / sum((prediction_summary$YIELD - mean(prediction_summary$YIELD))^2))
+  MAE <- mae(prediction_summary$PREDICTIONS, prediction_summary$YIELD)
+  MAPE <- MAPE(prediction_summary$PREDICTIONS, prediction_summary$YIELD)
+  
+  # build argument to feed save, below
+  list <- list("RMSE" = RMSE, "R2" = R2, "MAE" = MAE, "MAPE" = MAPE, "var_exp" = rf)
+  print(list)
+```
+
 
 # Partial dependence plots
 ```{r}
