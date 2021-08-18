@@ -264,3 +264,37 @@ jpeg("./viz/rf-farmer-tune-mtry.jpeg", height = 4, width = 6, units = "in", res 
 plot(rf_farmer_gridsearch)
 dev.off()
 ```
+
+
+# Tune Farm(er) RF, using ranger() implementation
+```{r}
+# hyperparameter grid search
+hyper_grid <- expand.grid(
+  mtry       = seq(5, 20, by = 2),
+  node_size  = seq(10, 20, by = 2),
+  sampe_size = c(.55, .632, .70, .80),
+  OOB_RMSE   = 0
+)
+
+# total number of combinations
+nrow(hyper_grid)
+
+for(i in 1:nrow(hyper_grid)) {
+  
+  # train model
+  model <- ranger(
+    formula         = YIELD ~ ., 
+    data            = farmer_train, 
+    num.trees       = 2000,
+    mtry            = hyper_grid$mtry[i],
+    min.node.size   = hyper_grid$node_size[i],
+    sample.fraction = hyper_grid$sampe_size[i],
+    seed            = 123
+  )
+  
+  # add OOB error to grid
+  hyper_grid$OOB_RMSE[i] <- sqrt(model$prediction.error)
+}
+
+saveRDS(hyper_grid, "./data/tune-farmer-ranger.RDS")
+```
