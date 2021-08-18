@@ -12,12 +12,14 @@ output:
 
 # Bring in the data, clean it up, and run the model on the training set
 ```{r packages and data}
-library(randomForest)
-library(tidyverse)
-library(ggplot2)
-library(caret)
-library(ie2misc)
-library(MLmetrics)
+library(randomForest) # basic implementation
+library(ranger)       # a faster implementation of randomForest
+library(caret)        # an aggregator package for performing many machine learning models
+library(h2o)          # an extremely fast java-based platform
+library(tidyverse)    # data tidying & munging
+library(ggplot2)      # data visualization
+library(MLmetrics)    # mean absolute percent error, mean-absolute error implementation
+#library(ie2misc)  
 
 # pull in TRUE train data; all data with recorded yield
 corn_yield <- readRDS("./data/yieldRF.RDS")
@@ -33,27 +35,44 @@ yield_RF$FRR <- as.factor(yield_RF$FRR)
 
 # Build training and test sets for: all data, pruned biophysical data, and pruned farm(er) data
 ```{r train and test}
+# Create training (75%) and test (25%) sets for our corn yield data.
+# Use set.seed for reproducibility
 set.seed(1234) 
 random_rn <- sample(nrow(yield_RF), ceiling(nrow(yield_RF)*.25)) 
 train_fullset <- yield_RF[-random_rn,] 
 test_fullset <- yield_RF[random_rn,] 
 
-# biophysical
+# subset for only biophysical variables
 train <- train_fullset %>% select(YEAR,YIELD,PERC_IRR,FRR,GDD,BV2,BV18,SDI_CDL_AG,BV9,BV4,TP,ELEVATION,S_PH_H2O,SLOPE,BV8,BV19,T_CEC_SOIL,BV15,T_REF_BULK_DENSITY,T_OC)
 test <- test_fullset %>% select(YEAR,YIELD,PERC_IRR,FRR,GDD,BV2,BV18,SDI_CDL_AG,BV9,BV4,TP,ELEVATION,S_PH_H2O,SLOPE,BV8,BV19,T_CEC_SOIL,BV15,T_REF_BULK_DENSITY,T_OC)
 
-# farmer
+# subset for biophysical AND farm(er) variables
 farmer_train <- train_fullset %>% select(YEAR,YIELD,PERC_IRR,FRR,GDD,BV2,BV18,SDI_CDL_AG,BV9,BV4,TP,ELEVATION,S_PH_H2O,SLOPE,BV8,BV19,T_CEC_SOIL,BV15,T_REF_BULK_DENSITY,T_OC,29:39)
 farmer_test <- test_fullset %>% select(YEAR,YIELD,PERC_IRR,FRR,GDD,BV2,BV18,SDI_CDL_AG,BV9,BV4,TP,ELEVATION,S_PH_H2O,SLOPE,BV8,BV19,T_CEC_SOIL,BV15,T_REF_BULK_DENSITY,T_OC,29:39)
 ```
 
-# Tune Biophysical RF
-```{r tune biophysical RF, evaluate = FALSE}
+### RF is one the best "out-of-the-box" ML algorithm
+
+It typically preforms remarkably well with very little tuning. There are only a few tuning parameters, all of which should be considered and adjusted for accuracy:
+
+- `ntree` : the number of trees; we want enough trees to stabilize our error, but don't want so many trees that our RF is unnecessarily inefficient.
+
+- `mtry` : the number of variables to randomly sample as candidates at each split; in RF regression, the default is   `mtry` = *p* / 3.
+
+- `sampsize` : the number of samples to train on; the default value is 63.25% of the training set (this is the expected value of unique observations in each bootstrap sample). Increasing sample size can increase performance, but also lead to overfitting; when tuned this value typically lies within the 60-80% range.
+
+- `nodesize` : minimum number of samples within the terminal nodes which controls the complexity of the trees. The deeper the trees, the higher the risk of overfitting; the shallower the trees, the high the risk of introducing bias and not fully capturing unique patterns in the data.
+
+- `maxnodes` : maximum number of terminal nodes. More nodes build deeper, more complex trees.
+
+
+# Tune Biophysical RF, using the classic randomForest() implementation
+```{r tune biophysical RF randomForest() package, evaluate = FALSE}
 control <- trainControl(method="repeatedcv", 
                         number=10, 
                         repeats=3, 
                         search="grid")
-set.seed(1234)
+set.seed(1234) 
 
 tunegrid <- expand.grid(.mtry=c(1:12))
 
@@ -124,7 +143,7 @@ Resampling results across tuning parameters:
 RMSE was used to select the optimal model using the smallest value.
 The final value used for the model was mtry = 12.
 
-# Biophysical RF variable importance with various mtry levels
+# Biophysical RF variable importance with various mtry levels, using the classic randomForest() implementation
 ```{r biophysical RF variable importance, evaluate = FALSE}
 # remove variables that contributed least to the full model
 rf_mtry <- function(mtry) {
@@ -188,6 +207,39 @@ rf_mtry_11 <- rf_mtry(11)
 rf_mtry_11
 rf_mtry_12 <- rf_mtry(12)
 rf_mtry_12
+```
+
+# Tune Biophysical RF, using ranger() implementation
+```{r}
+# hyperparameter grid search
+hyper_grid <- expand.grid(
+  mtry       = seq(1, 15, by = 2),
+  node_size  = seq(10, 20, by = 2),
+  sampe_size = c(.55, .632, .70, .80),
+  OOB_RMSE   = 0
+)
+
+# total number of combinations
+nrow(hyper_grid)
+
+for(i in 1:nrow(hyper_grid)) {
+  
+  # train model
+  model <- ranger(
+    formula         = YIELD ~ ., 
+    data            = train, 
+    num.trees       = 2000,
+    mtry            = hyper_grid$mtry[i],
+    min.node.size   = hyper_grid$node_size[i],
+    sample.fraction = hyper_grid$sampe_size[i],
+    seed            = 123
+  )
+  
+  # add OOB error to grid
+  hyper_grid$OOB_RMSE[i] <- sqrt(model$prediction.error)
+}
+
+saveRDS(hyper_grid, "./data/tune-bioph-ranger.RDS")
 ```
 
 # Tune Farm(er) RF
