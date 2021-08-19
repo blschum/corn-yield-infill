@@ -18,6 +18,7 @@ library(ggplot2)
 library(caret)
 library(ie2misc)
 library(MLmetrics)
+library(ranger)
 
 # pull in TRUE train data; all data with recorded yield
 corn_yield <- readRDS("./data/yieldRF.RDS")
@@ -162,6 +163,8 @@ imp_plot
 ```{r}
 # pull in TRUE train data; all data with recorded yield
 corn_yield <- readRDS("./data/yieldRF.RDS")
+yield_RF <- corn_yield %>% dplyr::select(-c(GEOID))
+
 corn_bioph <- corn_yield %>% 
   dplyr::select(GEOID,YEAR,YIELD,PERC_IRR,FRR,GDD,BV2,BV18,SDI_CDL_AG,BV9,BV4,TP,ELEVATION,S_PH_H2O,SLOPE,BV8,BV19,T_CEC_SOIL,BV15,T_REF_BULK_DENSITY,T_OC)
 
@@ -194,7 +197,7 @@ infill_bioph <- truetest %>%
 ```
 
 
-## Iterations
+## Iterations on biophysical models tuned with randomForests()
 ```{r}
 set.seed(1234)
 
@@ -261,6 +264,54 @@ prediction_summary <- prediction %>%
   # build argument to feed save, below
   list <- list("RMSE" = RMSE, "R2" = R2, "MAE" = MAE, "MAPE" = MAPE, "var_exp" = rf)
   print(list)
+```
+
+# Biophysical RF using optimal ranger from tune-RF
+
+ntree = 2000, mtry = 7, node size = 4, sample size = 0.800 ~ OOB RMSE = 17.54877
+```{r}
+set.seed(1234)
+
+for (iter in 1:1){
+  cat(paste('iter = ', iter, ':: '))
+  
+  # train the model
+  rf <- ranger(formula          = YIELD ~ ., 
+               data             = train, 
+               num.trees        = 2000,
+               mtry             = 7, 
+               min.node.size    = 4,
+               sample.fraction  = 0.8,
+               importance       = "impurity")
+  
+  # test the model
+  preds <- predict(rf, test)
+  preds <- as.data.frame(preds$predictions)
+  test <- cbind(test, preds) 
+  
+  # infill 
+  infill <- predict(rf, infill_bioph, type = "response")
+  infill_bioph$PREDICTIONS <- infill
+
+  # performance on test set
+  RMSE <- caret::RMSE(test$PREDICTIONS, test$YIELD)
+  R2 <- 1 - (sum((test$YIELD - test$PREDICTIONS)^2) / sum((test$YIELD - mean(test$YIELD))^2))
+  MAE <- mae(test$PREDICTIONS, test$YIELD)
+  MAPE <- MAPE(test$PREDICTIONS, test$YIELD)
+  
+  # build argument to feed save, below
+  list <- list("RMSE" = RMSE, "R2" = R2, "MAE" = MAE, "MAPE" = MAPE, "var_exp" = rf)
+  print(list)
+  
+  # variable importance
+  imp <- as.data.frame(rf$variable.importance)
+  
+  # save .RDS's
+  saveRDS(test, file = paste0('./ranger-results-preds/bio_RFpreds_',iter,'.RDS'))
+  saveRDS(imp, file = paste0('./ranger-results-imp/bio_RFimp_',iter,'.RDS'))
+  saveRDS(infill_bioph, file = paste0('./ranger-results-infill/bio_infill_',iter,'.RDS'))
+
+}
 ```
 
 
