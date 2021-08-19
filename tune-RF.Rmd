@@ -214,7 +214,7 @@ rf_mtry_12
 # hyperparameter grid search
 hyper_grid <- expand.grid(
   mtry       = seq(1, 15, by = 2),
-  node_size  = seq(10, 20, by = 2),
+  node_size  = seq(4, 20, by = 2),
   sampe_size = c(.55, .632, .70, .80),
   OOB_RMSE   = 0
 )
@@ -241,6 +241,12 @@ for(i in 1:nrow(hyper_grid)) {
 
 saveRDS(hyper_grid, "./data/tune-bioph-ranger.RDS")
 ```
+
+ntree = 2000
+mtry = 7
+node size = 4
+sample size = 0.800
+OOB RMSE = 17.54877
 
 # Tune Farm(er) RF
 ```{r tune farmer RF}
@@ -271,7 +277,7 @@ dev.off()
 # hyperparameter grid search
 hyper_grid <- expand.grid(
   mtry       = seq(5, 20, by = 2),
-  node_size  = seq(10, 20, by = 2),
+  node_size  = seq(4, 20, by = 2),
   sampe_size = c(.55, .632, .70, .80),
   OOB_RMSE   = 0
 )
@@ -298,3 +304,9 @@ for(i in 1:nrow(hyper_grid)) {
 
 saveRDS(hyper_grid, "./data/tune-farmer-ranger.RDS")
 ```
+
+ntree = 2000
+mtry = 19
+node size = 4
+sample size = 0.800
+OOB RMSE = 17.53468
