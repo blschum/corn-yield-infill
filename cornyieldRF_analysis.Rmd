@@ -157,7 +157,11 @@ imp_plot
 #ggsave(imp_plot, file = './viz/RFimpplot_red.png', dpi = 300, width = 7, height = 7)
 ```
 
+########################################################################################################################################################################################################################################################################################################################
+
 # Biophysical RFs
+
+########################################################################################################################################################################################################################################################################################################################
 
 ## Bring in data, again, for biophysical models with parameters from tune-RF.Rmd
 ```{r}
@@ -229,13 +233,14 @@ for (iter in 1:100){
   imp <- as.data.frame(varImpPlot(rf))
   colnames(imp)[1] <- paste0('IncPurity_',iter)
   imp$varnames <- rownames(imp) # row names to column
-  
-  # save .RDS's
+
+    # save .RDS's
   saveRDS(test, file = paste0('./results-preds/bio_RFpreds_',iter,'.RDS'))
   saveRDS(imp, file = paste0('./results-imp/bio_RFimp_',iter,'.RDS'))
   saveRDS(infill_bioph, file = paste0('./results-infill/bio_infill_',iter,'.RDS'))
-
 }
+
+  
 ```
 
 ## Take the average of the results for n = 100 RFs
@@ -272,7 +277,7 @@ ntree = 2000, mtry = 7, node size = 4, sample size = 0.800 ~ OOB RMSE = 17.54877
 ```{r}
 set.seed(1234)
 
-for (iter in 1:1){
+for (iter in 1:100){
   cat(paste('iter = ', iter, ':: '))
   
   # train the model
@@ -282,22 +287,25 @@ for (iter in 1:1){
                mtry             = 7, 
                min.node.size    = 4,
                sample.fraction  = 0.8,
-               importance       = "impurity")
+               importance       = "permutation")
   
   # test the model
-  preds <- predict(rf, test)
+  preds <- predict(rf, data = test)
   preds <- as.data.frame(preds$predictions)
+  colnames(preds) <- "PREDS"
   test <- cbind(test, preds) 
   
   # infill 
   infill <- predict(rf, infill_bioph, type = "response")
-  infill_bioph$PREDICTIONS <- infill
+  infill <- as.data.frame(infill$predictions)
+  colnames(infill) <- "INFILL"
+  infill_bioph <- cbind(infill_bioph, infill) 
 
   # performance on test set
-  RMSE <- caret::RMSE(test$PREDICTIONS, test$YIELD)
-  R2 <- 1 - (sum((test$YIELD - test$PREDICTIONS)^2) / sum((test$YIELD - mean(test$YIELD))^2))
-  MAE <- mae(test$PREDICTIONS, test$YIELD)
-  MAPE <- MAPE(test$PREDICTIONS, test$YIELD)
+  RMSE <- caret::RMSE(test$PREDS, test$YIELD)
+  R2 <- 1 - (sum((test$YIELD - test$PREDNS)^2) / sum((test$YIELD - mean(test$YIELD))^2))
+  MAE <- mae(test$PREDS, test$YIELD)
+  MAPE <- MAPE(test$PREDS, test$YIELD)
   
   # build argument to feed save, below
   list <- list("RMSE" = RMSE, "R2" = R2, "MAE" = MAE, "MAPE" = MAPE, "var_exp" = rf)
@@ -305,13 +313,17 @@ for (iter in 1:1){
   
   # variable importance
   imp <- as.data.frame(rf$variable.importance)
+  imp$Variable <- row.names(imp)
+  colnames(imp) <- c("VI", "VAR")
+  ranger_imp <- imp
   
   # save .RDS's
-  saveRDS(test, file = paste0('./ranger-results-preds/bio_RFpreds_',iter,'.RDS'))
-  saveRDS(imp, file = paste0('./ranger-results-imp/bio_RFimp_',iter,'.RDS'))
-  saveRDS(infill_bioph, file = paste0('./ranger-results-infill/bio_infill_',iter,'.RDS'))
+  saveRDS(test, file = paste0('./results/ranger-preds/bio_RFpreds_',iter,'.RDS'))
+  saveRDS(imp, file = paste0('./results/ranger-imp/bio_RFimp_',iter,'.RDS'))
+  saveRDS(infill_bioph, file = paste0('./results/ranger-infill/bio_infill_',iter,'.RDS'))
 
 }
+
 ```
 
 
