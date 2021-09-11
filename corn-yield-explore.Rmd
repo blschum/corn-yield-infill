@@ -228,7 +228,9 @@ saveRDS(y_present, "./data/true-train.RDS")
 # how many counties are missing yield?
 y_missing <- coterm %>% filter(GEOID %in% h$GEOID,
                                is.na(YIELD)) # 14631
-saveRDS(y_missing, "./data/true-test-infillobs.RDS")
+bio_farm_infill <- merge(y_missing, h, by = c("GEOID", "YEAR"))
+
+saveRDS(bio_farm_infill, "./data/true-test-infillobs.RDS")
 
 # for counties reporting yield, the number of years with reports (range = 1 - 11)
 y_count <- coterm %>% group_by(GEOID) %>% filter(!is.na(YIELD)) %>% summarise(sum = sum(length(YIELD)))

@@ -11,7 +11,7 @@ output:
 ---
 
 # Bring in the data, clean it up, and run the model on the training set
-```{r}
+```{r message = FALSE, warning = FALSE}
 library(randomForest)
 library(tidyverse)
 library(ggplot2)
@@ -187,7 +187,7 @@ infill_bioph <- truetest %>%
   dplyr::select(YEAR,YIELD,PERC_IRR,FRR,GDD,BV2,BV18,SDI_CDL_AG,BV9,BV4,TP,ELEVATION,S_PH_H2O,SLOPE,BV8,BV19,T_CEC_SOIL,BV15,T_REF_BULK_DENSITY,T_OC)
 
 # subset for biophysical AND farm(er) variables
-infill_farmer <- test_fulset %>% select(YEAR,YIELD,PERC_IRR,FRR,GDD,BV2,BV18,SDI_CDL_AG,BV9,BV4,TP,ELEVATION,S_PH_H2O,SLOPE,BV8,BV19,T_CEC_SOIL,BV15,T_REF_BULK_DENSITY,T_OC,29:39)
+infill_farmer <- truetest %>% select(YEAR,YIELD,PERC_IRR,FRR,GDD,BV2,BV18,SDI_CDL_AG,BV9,BV4,TP,ELEVATION,S_PH_H2O,SLOPE,BV8,BV19,T_CEC_SOIL,BV15,T_REF_BULK_DENSITY,T_OC,72, 74:83)
 ```
 
 ########################################################################################################################################################################################################################################################################################################################
@@ -321,6 +321,31 @@ for (iter in 1:100){
 
 ```
 
+## Take the average of the results for n = 100 RFs
+```{r}
+library(tidyverse)
+# build full list of files and bring them into the R environment
+prediction <- readRDS("./results/ranger-preds/bio_RFpreds_100.RDS")
+
+prediction <- merge(prediction, corn_bioph, by = c("YEAR","YIELD","PERC_IRR","FRR","GDD","BV2","BV18","SDI_CDL_AG","BV9","BV4","TP","ELEVATION","S_PH_H2O","SLOPE","BV8","BV19","T_CEC_SOIL","BV15","T_REF_BULK_DENSITY","T_OC"))
+
+library(tidyverse)
+prediction_summary <- prediction %>% 
+  mutate(FRR = as.numeric(FRR)) %>% 
+  dplyr::group_by(GEOID, YEAR) %>% 
+  summarise(across(everything(), list(mean)))
+
+# overall performance
+# performance on test set
+  RMSE <- caret::RMSE(prediction_summary$PREDICTIONS, prediction_summary$YIELD)
+  R2 <- 1 - (sum((prediction_summary$YIELD - prediction_summary$PREDICTIONS)^2) / sum((prediction_summary$YIELD - mean(prediction_summary$YIELD))^2))
+  MAE <- mae(prediction_summary$PREDICTIONS, prediction_summary$YIELD)
+  MAPE <- MAPE(prediction_summary$PREDICTIONS, prediction_summary$YIELD)
+  
+  # build argument to feed save, below
+  list <- list("RMSE" = RMSE, "R2" = R2, "MAE" = MAE, "MAPE" = MAPE, "var_exp" = rf)
+  print(list)
+```
 
 ########################################################################################################################################################################################################################################################################################################################
 
@@ -359,10 +384,10 @@ for (iter in 1:100){
   infill_farmer <- cbind(infill_farmer, infill) 
 
   # performance on test set
-  RMSE <- caret::RMSE(farmer_test$PREDS, farmer_test$YIELD)
-  R2 <- 1 - (sum((farmer_test$YIELD - farmer_test$PREDNS)^2) / sum((farmer_test$YIELD - mean(farmer_test$YIELD))^2))
-  MAE <- mae(farmer_test$PREDS, farmer_test$YIELD)
-  MAPE <- MAPE(farmer_test$PREDS, farmer_test$YIELD)
+  RMSE <- caret::RMSE(test$PREDS, test$YIELD)
+  R2 <- 1 - (sum((test$YIELD - test$PREDNS)^2) / sum((test$YIELD - mean(test$YIELD))^2))
+  MAE <- mae(test$PREDS, test$YIELD)
+  MAPE <- MAPE(test$PREDS, test$YIELD)
   
   # build argument to feed save, below
   list <- list("RMSE" = RMSE, "R2" = R2, "MAE" = MAE, "MAPE" = MAPE, "var_exp" = rf)
@@ -377,12 +402,37 @@ for (iter in 1:100){
   # save .RDS's
   saveRDS(test, file = paste0('./results/ranger-preds/farmer_RFpreds_',iter,'.RDS'))
   saveRDS(imp, file = paste0('./results/ranger-imp/farmer_RFimp_',iter,'.RDS'))
-  saveRDS(infill_bioph, file = paste0('./results/ranger-infill/farmer_infill_',iter,'.RDS'))
+  saveRDS(infill_farmer, file = paste0('./results/ranger-infill/farmer_infill_',iter,'.RDS'))
 
 }
 
 ```
 
+## Take the average of the results for n = 100 RFs
+```{r}
+library(tidyverse)
+# build full list of files and bring them into the R environment
+prediction <- readRDS("./results/ranger-preds/farmer_RFpreds_100.RDS")
+
+prediction <- merge(prediction, corn_bioph, by = c("YEAR","YIELD","PERC_IRR","FRR","GDD","BV2","BV18","SDI_CDL_AG","BV9","BV4","TP","ELEVATION","S_PH_H2O","SLOPE","BV8","BV19","T_CEC_SOIL","BV15","T_REF_BULK_DENSITY","T_OC"))
+
+library(tidyverse)
+prediction_summary <- prediction %>% 
+  mutate(FRR = as.numeric(FRR)) %>% 
+  dplyr::group_by(GEOID, YEAR) %>% 
+  summarise(across(everything(), list(mean)))
+
+# overall performance
+# performance on test set
+  RMSE <- caret::RMSE(prediction_summary$PREDICTIONS, prediction_summary$YIELD)
+  R2 <- 1 - (sum((prediction_summary$YIELD - prediction_summary$PREDICTIONS)^2) / sum((prediction_summary$YIELD - mean(prediction_summary$YIELD))^2))
+  MAE <- mae(prediction_summary$PREDICTIONS, prediction_summary$YIELD)
+  MAPE <- MAPE(prediction_summary$PREDICTIONS, prediction_summary$YIELD)
+  
+  # build argument to feed save, below
+  list <- list("RMSE" = RMSE, "R2" = R2, "MAE" = MAE, "MAPE" = MAPE, "var_exp" = rf)
+  print(list)
+```
 
 #########################################################################################################################################################################################################################################
 
