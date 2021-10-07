@@ -11,7 +11,11 @@ output:
 ---
 
 # Bring in the data, clean it up, and run the model on the training set
+<<<<<<< HEAD
 ```{r message = F, warning = F}
+=======
+```{r message = FALSE, warning = FALSE}
+>>>>>>> 43aab2b6db31cbcb79b38311a68dba962a8a037a
 library(randomForest)
 library(tidyverse)
 library(ggplot2)
@@ -157,6 +161,7 @@ imp_plot
 #ggsave(imp_plot, file = './viz/RFimpplot_red.png', dpi = 300, width = 7, height = 7)
 ```
 
+<<<<<<< HEAD
 ########################################################################################################################################################################################################################################################################################################################
 
 # Biophysical RFs
@@ -172,16 +177,34 @@ yield_RF <- corn_yield %>% dplyr::select(-c(GEOID))
 # specify qualitative variables that are factors
 yield_RF$YEAR <- as.factor(yield_RF$YEAR)
 yield_RF$FRR <- as.factor(yield_RF$FRR)
+=======
+##########################################################################################################################################################################################################################################
 
-# reduced variable set
-yield_RF_bioph <- yield_RF %>% 
-  dplyr::select(YEAR,YIELD,PERC_IRR,FRR,GDD,BV2,BV18,SDI_CDL_AG,BV9,BV4,TP,ELEVATION,S_PH_H2O,SLOPE,BV8,BV19,T_CEC_SOIL,BV15,T_REF_BULK_DENSITY,T_OC)
+# Build training and test sets for: all data, pruned biophysical data, and pruned farm(er) data
+```{r train and test}
+# Create training (75%) and test (25%) sets for our corn yield data.
+# Use set.seed for reproducibility
+set.seed(1234) 
+random_rn <- sample(nrow(yield_RF), ceiling(nrow(yield_RF)*.25)) 
+train_fullset <- yield_RF[-random_rn,] 
+test_fullset <- yield_RF[random_rn,] 
+>>>>>>> 43aab2b6db31cbcb79b38311a68dba962a8a037a
 
+# subset for only biophysical variables
+train <- train_fullset %>% select(YEAR,YIELD,PERC_IRR,FRR,GDD,BV2,BV18,SDI_CDL_AG,BV9,BV4,TP,ELEVATION,S_PH_H2O,SLOPE,BV8,BV19,T_CEC_SOIL,BV15,T_REF_BULK_DENSITY,T_OC)
+test <- test_fullset %>% select(YEAR,YIELD,PERC_IRR,FRR,GDD,BV2,BV18,SDI_CDL_AG,BV9,BV4,TP,ELEVATION,S_PH_H2O,SLOPE,BV8,BV19,T_CEC_SOIL,BV15,T_REF_BULK_DENSITY,T_OC)
+
+<<<<<<< HEAD
 # build training and test sets used in each iteration of the RF, below
 set.seed(1234)
 random_rn <- sample(nrow(yield_RF_bioph), ceiling(nrow(yield_RF_bioph)*.25)) 
 train <- yield_RF_bioph[-random_rn,] 
 test <- yield_RF_bioph[random_rn,] 
+=======
+# subset for biophysical AND farm(er) variables
+farmer_train <- train_fullset %>% select(YEAR,YIELD,PERC_IRR,FRR,GDD,BV2,BV18,SDI_CDL_AG,BV9,BV4,TP,ELEVATION,S_PH_H2O,SLOPE,BV8,BV19,T_CEC_SOIL,BV15,T_REF_BULK_DENSITY,T_OC,29:39)
+farmer_test <- test_fullset %>% select(YEAR,YIELD,PERC_IRR,FRR,GDD,BV2,BV18,SDI_CDL_AG,BV9,BV4,TP,ELEVATION,S_PH_H2O,SLOPE,BV8,BV19,T_CEC_SOIL,BV15,T_REF_BULK_DENSITY,T_OC,29:39)
+>>>>>>> 43aab2b6db31cbcb79b38311a68dba962a8a037a
 
 # bring in true test
 truetest <- readRDS("./data/true-test-infillobs.RDS")
@@ -189,10 +212,19 @@ truetest <- readRDS("./data/true-test-infillobs.RDS")
 truetest$YEAR <- as.factor(truetest$YEAR)
 truetest$FRR <- as.factor(truetest$FRR)
 
+# subset for only biophysical variables
 infill_bioph <- truetest %>% 
   dplyr::select(YEAR,YIELD,PERC_IRR,FRR,GDD,BV2,BV18,SDI_CDL_AG,BV9,BV4,TP,ELEVATION,S_PH_H2O,SLOPE,BV8,BV19,T_CEC_SOIL,BV15,T_REF_BULK_DENSITY,T_OC)
+
+# subset for biophysical AND farm(er) variables
+infill_farmer <- truetest %>% select(YEAR,YIELD,PERC_IRR,FRR,GDD,BV2,BV18,SDI_CDL_AG,BV9,BV4,TP,ELEVATION,S_PH_H2O,SLOPE,BV8,BV19,T_CEC_SOIL,BV15,T_REF_BULK_DENSITY,T_OC,72, 74:83)
 ```
 
+########################################################################################################################################################################################################################################################################################################################
+
+# Biophysical RFs
+
+########################################################################################################################################################################################################################################################################################################################
 
 ## Iterations on biophysical models tuned with randomForests()
 ```{r}
@@ -319,6 +351,120 @@ for (iter in 1:100){
 
 ```
 
+## Take the average of the results for n = 100 RFs
+```{r}
+library(tidyverse)
+# build full list of files and bring them into the R environment
+prediction <- readRDS("./results/ranger-preds/bio_RFpreds_100.RDS")
+
+prediction <- merge(prediction, corn_bioph, by = c("YEAR","YIELD","PERC_IRR","FRR","GDD","BV2","BV18","SDI_CDL_AG","BV9","BV4","TP","ELEVATION","S_PH_H2O","SLOPE","BV8","BV19","T_CEC_SOIL","BV15","T_REF_BULK_DENSITY","T_OC"))
+
+library(tidyverse)
+prediction_summary <- prediction %>% 
+  mutate(FRR = as.numeric(FRR)) %>% 
+  dplyr::group_by(GEOID, YEAR) %>% 
+  summarise(across(everything(), list(mean)))
+
+# overall performance
+# performance on test set
+  RMSE <- caret::RMSE(prediction_summary$PREDICTIONS, prediction_summary$YIELD)
+  R2 <- 1 - (sum((prediction_summary$YIELD - prediction_summary$PREDICTIONS)^2) / sum((prediction_summary$YIELD - mean(prediction_summary$YIELD))^2))
+  MAE <- mae(prediction_summary$PREDICTIONS, prediction_summary$YIELD)
+  MAPE <- MAPE(prediction_summary$PREDICTIONS, prediction_summary$YIELD)
+  
+  # build argument to feed save, below
+  list <- list("RMSE" = RMSE, "R2" = R2, "MAE" = MAE, "MAPE" = MAPE, "var_exp" = rf)
+  print(list)
+```
+
+########################################################################################################################################################################################################################################################################################################################
+
+# Farm(er) RFs
+
+########################################################################################################################################################################################################################################################################################################################
+
+# Farm(er) RF using optimal ranger from tune-RF
+
+ntree = 2000, mtry = 19, node size = 4, sample size = 0.800, OOB RMSE = 17.53468
+```{r}
+set.seed(1234)
+
+for (iter in 1:100){
+  cat(paste('iter = ', iter, ':: '))
+  
+  # train the model
+  rf <- ranger(formula          = YIELD ~ ., 
+               data             = farmer_train, 
+               num.trees        = 2000,
+               mtry             = 19, 
+               min.node.size    = 4,
+               sample.fraction  = 0.8,
+               importance       = "permutation")
+  
+  # test the model
+  preds <- predict(rf, data = farmer_test)
+  preds <- as.data.frame(preds$predictions)
+  colnames(preds) <- "PREDS"
+  test <- cbind(farmer_test, preds) 
+  
+  # infill 
+  infill <- predict(rf, infill_farmer, type = "response")
+  infill <- as.data.frame(infill$predictions)
+  colnames(infill) <- "INFILL"
+  infill_farmer <- cbind(infill_farmer, infill) 
+
+  # performance on test set
+  RMSE <- caret::RMSE(test$PREDS, test$YIELD)
+  R2 <- 1 - (sum((test$YIELD - test$PREDNS)^2) / sum((test$YIELD - mean(test$YIELD))^2))
+  MAE <- mae(test$PREDS, test$YIELD)
+  MAPE <- MAPE(test$PREDS, test$YIELD)
+  
+  # build argument to feed save, below
+  list <- list("RMSE" = RMSE, "R2" = R2, "MAE" = MAE, "MAPE" = MAPE, "var_exp" = rf)
+  print(list)
+  
+  # variable importance
+  imp <- as.data.frame(rf$variable.importance)
+  imp$Variable <- row.names(imp)
+  colnames(imp) <- c("VI", "VAR")
+  ranger_imp <- imp
+  
+  # save .RDS's
+  saveRDS(test, file = paste0('./results/ranger-preds/farmer_RFpreds_',iter,'.RDS'))
+  saveRDS(imp, file = paste0('./results/ranger-imp/farmer_RFimp_',iter,'.RDS'))
+  saveRDS(infill_farmer, file = paste0('./results/ranger-infill/farmer_infill_',iter,'.RDS'))
+
+}
+
+```
+
+## Take the average of the results for n = 100 RFs
+```{r}
+library(tidyverse)
+# build full list of files and bring them into the R environment
+prediction <- readRDS("./results/ranger-preds/farmer_RFpreds_100.RDS")
+
+prediction <- merge(prediction, corn_bioph, by = c("YEAR","YIELD","PERC_IRR","FRR","GDD","BV2","BV18","SDI_CDL_AG","BV9","BV4","TP","ELEVATION","S_PH_H2O","SLOPE","BV8","BV19","T_CEC_SOIL","BV15","T_REF_BULK_DENSITY","T_OC"))
+
+library(tidyverse)
+prediction_summary <- prediction %>% 
+  mutate(FRR = as.numeric(FRR)) %>% 
+  dplyr::group_by(GEOID, YEAR) %>% 
+  summarise(across(everything(), list(mean)))
+
+# overall performance
+# performance on test set
+  RMSE <- caret::RMSE(prediction_summary$PREDICTIONS, prediction_summary$YIELD)
+  R2 <- 1 - (sum((prediction_summary$YIELD - prediction_summary$PREDICTIONS)^2) / sum((prediction_summary$YIELD - mean(prediction_summary$YIELD))^2))
+  MAE <- mae(prediction_summary$PREDICTIONS, prediction_summary$YIELD)
+  MAPE <- MAPE(prediction_summary$PREDICTIONS, prediction_summary$YIELD)
+  
+  # build argument to feed save, below
+  list <- list("RMSE" = RMSE, "R2" = R2, "MAE" = MAE, "MAPE" = MAPE, "var_exp" = rf)
+  print(list)
+```
+
+#########################################################################################################################################################################################################################################
 
 # Partial dependence plots
 ```{r}
