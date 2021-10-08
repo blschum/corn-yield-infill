@@ -338,7 +338,7 @@ for (iter in 1:100){
 
 ```
 
-## Take the average of the results for n = 100 RFs
+## Take the average of the performance results for *n* = 100 RFs
 ```{r}
 library(tidyverse)
 # build full list of files and bring them into the R environment
@@ -371,6 +371,35 @@ saveRDS(prediction_bioph_summary, "./data/data-out/ensemble_bioph_preds.RDS")
   # build argument to feed save, below
   bioph_list <- list("RMSE" = b_RMSE, "R2" = b_R2, "MAE" = b_MAE, "MAPE" = b_MAPE)
   print(bioph_list)
+```
+
+## Take the average of the variable importance results for *n* = 100 RFs
+```{r}
+# build full list of files and bring them into the R environment
+bioph_imp <- list.files(path = "./results/ranger-imp/",
+                    pattern = "bio", full.names = T, all.files = T) %>% 
+  map_dfr(readRDS) %>% 
+  group_by(VAR) %>% 
+  summarise(ave_imp = mean(VI),
+            sd_imp = sd(VI)) %>% 
+  mutate(VAR = as.factor(VAR))
+
+# variable importance plo
+bioph_imp$VAR_NAME <- c("Precipitation Seasonality", "Precipitation of the warmest quarter", "Precipitation of the coldest quarter", "Mean diurnal range", "Temperature seasonality", "Mean temperature of the wettest quarter", "Mean temperature of the driest quarter", "Elevation", "Farm Resource Region", "Growing degree days", "Percent irrigated acreage", "Subsoil pH", "Shannon's Diversity Index", "Slope", "Topsoil cation exchange capacity", "Topsoil organic carbon", "Topsoil reference bulk density", "Total precipitation", "Year")
+
+bioph_imp <- bioph_imp %>%  mutate(Prop = ave_imp/sum(ave_imp)*100)
+
+#saveRDS(imp_red, file = './results/RFimp_red.RDS')
+
+bioph_imp_plot <- ggplot(bioph_imp, aes(x=reorder(VAR_NAME, ave_imp), y=ave_imp)) + 
+  geom_point() +
+  geom_segment(aes(x=VAR_NAME,xend=VAR_NAME,y=0,yend=ave_imp)) +
+  ylab("Increase in node purity") +
+  xlab("") +
+  coord_flip() +
+  theme_minimal()
+
+bioph_imp_plot
 ```
 
 ########################################################################################################################################################################################################################################################################################################################
@@ -464,6 +493,34 @@ saveRDS(prediction_farm_summary, "./data/data-out/ensemble_farm_preds.RDS")
   # build argument to feed save, below
   farmer_list <- list("RMSE" = f_RMSE, "R2" = f_R2, "MAE" = f_MAE, "MAPE" = f_MAPE)
   print(farmer_list)
+```
+## Take the average of the variable importance results for *n* = 100 RFs
+```{r}
+# build full list of files and bring them into the R environment
+farmer_imp <- list.files(path = "./results/ranger-imp/",
+                    pattern = "farm", full.names = T, all.files = T) %>% 
+  map_dfr(readRDS) %>% 
+  group_by(VAR) %>% 
+  summarise(ave_imp = mean(VI),
+            sd_imp = sd(VI)) %>% 
+  mutate(VAR = as.factor(VAR))
+
+# variable importance plo
+farmer_imp$VAR_NAME <- c("Precipitation Seasonality", "Precipitation of the warmest quarter", "Precipitation of the coldest quarter", "Mean diurnal range", "Temperature seasonality", "Mean temperature of the wettest quarter", "Mean temperature of the driest quarter", "Elevation", "Farm Resource Region", "Growing degree days", "Percent irrigated acreage", "Subsoil pH", "Shannon's Diversity Index", "Slope", "Topsoil cation exchange capacity", "Topsoil organic carbon", "Topsoil reference bulk density", "Total precipitation", "Year")
+
+farmer_imp <- farmer_imp %>%  mutate(Prop = ave_imp/sum(ave_imp)*100)
+
+#saveRDS(imp_red, file = './results/RFimp_red.RDS')
+
+farmer_imp_plot <- ggplot(bioph_imp, aes(x=reorder(VAR_NAME, ave_imp), y=ave_imp)) + 
+  geom_point() +
+  geom_segment(aes(x=VAR_NAME,xend=VAR_NAME,y=0,yend=ave_imp)) +
+  ylab("Increase in node purity") +
+  xlab("") +
+  coord_flip() +
+  theme_minimal()
+
+farmer_imp_plot
 ```
 
 #########################################################################################################################################################################################################################################

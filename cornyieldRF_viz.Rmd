@@ -130,6 +130,10 @@ ggsave("./viz/Figure2.png", dpi = 400, width = 170, height  = 240, units = "mm",
 
 ```
 
+## Figure 3. Biophysical ensemble permutation variable importance. The 20 covariates appear on the y-axis and their contribution to node purity on the x-axis. Variables are listed in order of importance, with the most important variable being year and least important being topsoil reference bulk density; see Table 1 for variable names, units, and descriptions.
+```{r}
+
+```
 
 
 # Farm(er) RF Ensemble Results
@@ -171,6 +175,14 @@ plot_grid(photo_panel, p, nrow = 2, labels = c("A.", "B."))
 ggsave("./viz/Figure4.png", dpi = 400, width = 170, height  = 240, units = "mm", bg = "white")
 
 ```
+
+
+#######################################################################################################################
+#### POTENTIALLY TRASH. BELOW...
+#######################################################################################################################
+
+
+
 
 # Let's visualize error in yield each year
 ```{r}
