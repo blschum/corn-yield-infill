@@ -12,7 +12,7 @@ output:
 
 # Bring in the data, clean it up, and start visualizing.
 
-First, we'll work with the reduced RF modeling across all FRRs and years! Then, we'll visualize error over time using the individual year-by-year and FRR-by-FRR RFs!
+Let's first bring in the data, clean it up, and make it spatial!
 ```{r warning = F, message = F}
 library(ggplot2)
 library(sp)
@@ -31,22 +31,17 @@ library(maptools)
 library(grid)
 library(biscale)
 library(ggcorrplot)
+library(ggimage)
+library(png)
+library(gridExtra)
+library(cowplot)
 
-# build GEOID back into RFpreds_red.RDS dataframe
-red <- readRDS('./results/RFpreds_red.RDS')
-corn_yield <- readRDS("./data/yieldRF.RDS")
+# Bring in data
+bioph_preds <- readRDS('./data/data-out/ensemble_bioph_preds.RDS')
+farmer_preds <- readRDS('./data/data-out/ensemble_farm_preds.RDS')
 ctys <- readRDS("./data/county.RDS")
 state <- readRDS("./data/states.RDS")
-
-# keep only counties with at least 3 years of data
-sub_id <- corn_yield %>% mutate(count = 1) %>%  group_by(GEOID) %>% summarise(n = sum(count)) %>% filter(n >= 3)
-
-corn_yield <- corn_yield %>% filter(GEOID %in% sub_id$GEOID)
-
-yield_RF_reduced <- corn_yield %>% 
-  dplyr::select(GEOID,YEAR,YIELD,PERC_IRR,CORN_SQKM,FRR,GDD,BV18,BV2,SDI_CDL_AG,AG_SQKM,BV9,TP,BV4,ELEVATION,BV8,S_PH_H2O,BV19,T_CEC_SOIL,SLOPE,BV15,T_OC,T_REF_BULK_DENSITY)
-
-red <- merge(red, yield_RF_reduced, by = c("YEAR","YIELD","PERC_IRR","CORN_SQKM","FRR","GDD","BV18","BV2","SDI_CDL_AG","AG_SQKM","BV9","TP","BV4","ELEVATION","BV8","S_PH_H2O","BV19","T_CEC_SOIL","SLOPE","BV15","T_OC","T_REF_BULK_DENSITY"))
+corn_yield <- readRDS("./data/yieldRF.RDS")
 
 # build frr spatial
 frr <- read.csv("./data/FRR_data.csv") 
@@ -69,33 +64,113 @@ frr_agg <- unionSpatialPolygons(SpP = frr_shp, IDs = frr_shp$FRR)
 frr_final <- aggregate(frr_shp["FRR"], frr_agg, FUN = getmode)
 
 # Visualize difference between reported yield (YIELD) and predicted yield (PREDICTIONS) across space-time
-diff <- red %>% dplyr::select(c(GEOID, YEAR, YIELD, PREDICTIONS)) %>% mutate(diff = PREDICTIONS - YIELD)
-diff_sp <- merge(ctys, diff, by = "GEOID", duplicateGeoms = TRUE)
-
+bioph_sp <- merge(ctys, bioph_preds, by = "GEOID", duplicateGeoms = TRUE)
+farmer_sp <- merge(ctys, farmer_preds, by = "GEOID", duplicateGeoms = TRUE)
 ```
 
-# Full Panel, reduced-RF
-
-# Let's visualize observations v. predictions
+## Figure 1.
 ```{r}
-cor(red$YIELD, red$PREDICTIONS, method = "pearson")
+# Build yield
+y <- corn_yield %>% dplyr::select(GEOID,YEAR,YIELD) %>% group_by(GEOID) %>% summarise(ave = mean(YIELD))
 
-p <- ggplot(red, aes(x=YIELD, y=PREDICTIONS)) +
+corn_yield %>% summarise(mean_yield = mean(YIELD),
+                         sd_yield = sd(YIELD))
+y_sp <- merge(ctys, y, by = "GEOID")
+
+map <- tm_shape(y_sp) +
+  tm_polygons(col = "ave", breaks = c(25,75,100,125,150,175,200,225,275), palette = "Greens", border.col = "transparent", title = "Corn Yield\n(bu/acre)") +
+  tm_legend(outside = TRUE) +
+  tm_layout(frame = FALSE) +
+    tm_shape(frr_final) +
+  tm_borders(col = "black")
+
+map
+
+tmap_save(map, file = './viz/Figure1.png', dpi = 400)
+```
+
+
+# Biophysical RF Ensemble Results
+
+## Figure 2. Biophysical RF ensemble model performance on test data. A) Average error in model predictions in bushels/acre observed across ensemble models (*n* = 100) and years (2008-2018). Counties in which predicted yields were less (greater) than observed yields appear in shades of red (blue). B) Observed v. predicted plot for the full panel dataset (Pearson’s r = 0.90). The dashed line indicates a 1:1 relationship and the solid blue line shows a linear regression between the observed and predicted yields.
+```{r}
+cor(bioph_preds$YIELD, bioph_preds$average_prediction, method = "pearson")
+
+p <- ggplot(bioph_preds, aes(x=YIELD, y=average_prediction)) +
   geom_point(size = 0.5) + 
   geom_smooth(method=lm, se=FALSE, fullrange=TRUE)+
   geom_abline(intercept = 0, slope = 1, color="black", 
                  linetype="dashed", size=0.65) +
   theme_classic() +
   xlab("Observed (bushels/acre)") +
-  ylab("Predicted (bushels/acre)") +
+  ylab("Ensemble Predicted (bushels/acre)") +
   xlim(1,250) +
   ylim(0,250) +
-  annotate("text", x = 175.0, y = 40.0, label = "RMSE = 16.9 bushels/acre\nVariance Explained = 81.6%\nr = 0.91", hjust=0)
+  annotate("text", x = 175.0, y = 40.0, label = "RMSE = 17.21 bushels/acre\nVariance Explained = 80.7%\nr = 0.90", hjust=0)
 p
 
-ggsave(filename = "./viz/sp_reducedRF/cor_plot.png", plot = p, dpi = 300, width = 7, height = 7)
+# % between -10 and 10
+perc <- bioph_preds %>% dplyr::filter(error > -10 & error < 10) #2079/4246 = 49.0%
+
+map <- tm_shape(bioph_sp) +
+  tm_polygons(col = "error", breaks = c(-100,-30,-20,-10,-5,0,5,10,20,30,100), palette = c("#67001F","#B2182B", "#D6604D", "#F4A582", "#FDDBC7", "#D1E5F0" ,"#92C5DE","#4393C3", "#2166AC", "#053061"), border.col = "transparent", title = "Average Error\n(bushels/acre)", legend.hist = TRUE, title = title) +
+  tm_legend(outside = TRUE, hist.width = 1.5) +
+  tm_layout(frame = FALSE,
+            legend.hist.size = 0.5) +
+      tm_shape(frr_final) +
+  tm_borders(col = "black")
+
+tmap_save(tm = map, file = './viz/bioph-rf-performance.png', dpi = 400)
+
+img <- readPNG("./viz/bioph-rf-performance.png")
+photo_panel <- ggdraw() + draw_image(img, scale = 1.05)
+
+plot_grid(photo_panel, p, nrow = 2, labels = c("A.", "B."))
+ggsave("./viz/Figure2.png", dpi = 400, width = 170, height  = 240, units = "mm", bg = "white")
+
 ```
 
+
+
+# Farm(er) RF Ensemble Results
+
+## Figure 4. Farm(er) RF ensemble model performance on test data. A) Average error in model predictions in bushels/acre observed across ensemble models (*n* = 100) and years (2008-2018). Counties in which predicted yields were less (greater) than observed yields appear in shades of red (blue). B) Observed v. predicted plot for the full panel dataset (Pearson’s r = 0.90). The dashed line indicates a 1:1 relationship and the solid blue line shows a linear regression between the observed and predicted yields.
+```{r}
+cor(farmer_preds$YIELD, farmer_preds$average_prediction, method = "pearson")
+
+p <- ggplot(farmer_preds, aes(x=YIELD, y=average_prediction)) +
+  geom_point(size = 0.5) + 
+  geom_smooth(method=lm, se=FALSE, fullrange=TRUE)+
+  geom_abline(intercept = 0, slope = 1, color="black", 
+                 linetype="dashed", size=0.65) +
+  theme_classic() +
+  xlab("Observed (bushels/acre)") +
+  ylab("Ensemble Predicted (bushels/acre)") +
+  xlim(1,250) +
+  ylim(0,250) +
+  annotate("text", x = 175.0, y = 40.0, label = "RMSE = 17.29 bushels/acre\nVariance Explained = 80.5%\nr = 0.90", hjust=0)
+p
+
+# % between -10 and 10
+perc <- farmer_preds %>% dplyr::filter(error > -10 & error < 10) #2146/4246 = 50.5%
+
+map <- tm_shape(farmer_sp) +
+  tm_polygons(col = "error", breaks = c(-100,-30,-20,-10,-5,0,5,10,20,30,100), palette = c("#67001F","#B2182B", "#D6604D", "#F4A582", "#FDDBC7", "#D1E5F0" ,"#92C5DE","#4393C3", "#2166AC", "#053061"), border.col = "transparent", title = "Average Error\n(bushels/acre)", legend.hist = TRUE, title = title) +
+  tm_legend(outside = TRUE, hist.width = 1.5) +
+  tm_layout(frame = FALSE,
+            legend.hist.size = 0.5) +
+      tm_shape(frr_final) +
+  tm_borders(col = "black")
+
+tmap_save(tm = map, file = './viz/farmer-rf-performance.png', dpi = 400)
+
+img <- readPNG("./viz/farmer-rf-performance.png")
+photo_panel <- ggdraw() + draw_image(img, scale = 1.05)
+
+plot_grid(photo_panel, p, nrow = 2, labels = c("A.", "B."))
+ggsave("./viz/Figure4.png", dpi = 400, width = 170, height  = 240, units = "mm", bg = "white")
+
+```
 
 # Let's visualize error in yield each year
 ```{r}
@@ -248,20 +323,6 @@ bw
 
 ggsave(filename = "./viz/sp_reducedRF/bw_irrig.png", plot = bw, dpi = 300, width = 7, height = 5)
 
-# Build yield
-y <- corn_yield %>% dplyr::select(GEOID,YEAR,YIELD) %>% group_by(GEOID) %>% summarise(ave = mean(YIELD))
-y_sp <- merge(ctys, y, by = "GEOID")
-
-map <- tm_shape(y_sp) +
-  tm_polygons(col = "ave", breaks = c(25,75,100,125,150,175,200,225,275), palette = "Greens", border.col = "transparent", title = "Corn Yield\n(bu/acre)") +
-  tm_legend(outside = TRUE) +
-  tm_layout(frame = FALSE) +
-    tm_shape(frr_final) +
-  tm_borders(col = "black")
-
-map
-
-tmap_save(map, file = paste0('./viz/yield.png'))
 ```
 
 
