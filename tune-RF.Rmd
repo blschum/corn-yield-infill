@@ -248,6 +248,66 @@ node size = 4
 sample size = 0.800
 OOB RMSE = 17.54877
 
+# Biophysical RF variable importance with various mtry levels, using the classic ranger() implementation
+```{r}
+rf_mtry <- function(mtry) {
+  
+  #index
+  index <- mtry
+  
+  # build RF on training data
+  set.seed(1234) 
+  rf <- ranger(formula          = YIELD ~ ., 
+               data             = train, 
+               num.trees        = 2000,
+               mtry             = index, 
+               min.node.size    = 4,
+               sample.fraction  = 0.8,
+               importance       = "permutation")
+  
+  # test the model
+  preds <- predict(rf, data = test)
+  preds <- as.data.frame(preds$predictions)
+  colnames(preds) <- "PREDS"
+  test <- cbind(test, preds) 
+
+  # performance on test set
+  RMSE <- caret::RMSE(test$PREDS, test$YIELD)
+  R2 <- 1 - (sum((test$YIELD - test$PREDS)^2) / sum((test$YIELD - mean(test$YIELD))^2))
+  
+  # build argument to feed save, below
+  list <- list("RMSE" = RMSE, "R2" = R2, "var_exp" = rf)
+  print(list)
+  
+  # variable importance
+  imp <- as.data.frame(rf$variable.importance)
+  imp$Variable <- row.names(imp)
+  colnames(imp) <- c("VI", "VAR")
+  ranger_imp <- imp
+  
+  # save .RDS's
+  saveRDS(imp, file = paste0('./results/ranger-imp/mtry_bioRF_',index,'.RDS'))
+  return(list)
+
+}
+
+rf_mtry_1 <- rf_mtry(1)
+
+rf_mtry_3 <- rf_mtry(3)
+
+rf_mtry_5 <- rf_mtry(5)
+
+rf_mtry_7 <- rf_mtry(7)
+
+rf_mtry_9 <- rf_mtry(9)
+
+rf_mtry_11 <- rf_mtry(11)
+
+rf_mtry_13 <- rf_mtry(13)
+
+rf_mtry_15 <- rf_mtry(15)
+```
+
 # Tune Farm(er) RF
 ```{r tune farmer RF}
 control <- trainControl(method="repeatedcv", 
@@ -310,3 +370,63 @@ mtry = 19
 node size = 4
 sample size = 0.800
 OOB RMSE = 17.53468
+
+# Farm(er) RF variable importance with various mtry levels, using the ranger() implementation
+```{r}
+rf_mtry <- function(mtry) {
+  
+  #index
+  index <- mtry
+  
+  # build RF on training data
+  set.seed(1234) 
+  rf <- ranger(formula          = YIELD ~ ., 
+               data             = farmer_train, 
+               num.trees        = 2000,
+               mtry             = index, 
+               min.node.size    = 4,
+               sample.fraction  = 0.8,
+               importance       = "permutation")
+  
+  # test the model
+  preds <- predict(rf, data = farmer_test)
+  preds <- as.data.frame(preds$predictions)
+  colnames(preds) <- "PREDS"
+  test <- cbind(farmer_test, preds) 
+
+  # performance on test set
+  RMSE <- caret::RMSE(test$PREDS, test$YIELD)
+  R2 <- 1 - (sum((test$YIELD - test$PREDS)^2) / sum((test$YIELD - mean(test$YIELD))^2))
+  
+  # build argument to feed save, below
+  list <- list("RMSE" = RMSE, "R2" = R2, "var_exp" = rf)
+  print(list)
+  
+  # variable importance
+  imp <- as.data.frame(rf$variable.importance)
+  imp$Variable <- row.names(imp)
+  colnames(imp) <- c("VI", "VAR")
+  ranger_imp <- imp
+  
+  # save .RDS's
+  saveRDS(imp, file = paste0('./results/ranger-imp/mtry_farmRF_',index,'.RDS'))
+  return(list)
+
+}
+
+rf_mtry_5 <- rf_mtry(5)
+
+rf_mtry_7 <- rf_mtry(7)
+
+rf_mtry_9 <- rf_mtry(9)
+
+rf_mtry_11 <- rf_mtry(11)
+
+rf_mtry_13 <- rf_mtry(13)
+
+rf_mtry_15 <- rf_mtry(15)
+
+rf_mtry_17 <- rf_mtry(17)
+
+rf_mtry_19 <- rf_mtry(19)
+```

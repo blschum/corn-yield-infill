@@ -130,9 +130,28 @@ ggsave("./viz/Figure2.png", dpi = 400, width = 170, height  = 240, units = "mm",
 
 ```
 
-## Figure 3. Biophysical ensemble permutation variable importance. The 20 covariates appear on the y-axis and their contribution to node purity on the x-axis. Variables are listed in order of importance, with the most important variable being year and least important being topsoil reference bulk density; see Table 1 for variable names, units, and descriptions.
+## Figure 3. Biophysical ensemble permutation variable importance. The 19 covariates appear on the y-axis and their contribution to node purity on the x-axis. Variables are listed in order of importance, with the most important variable being year and least important being topsoil reference bulk density; see Table 1 for variable names, units, and descriptions.
 ```{r}
+bio.imp <- list.files(path="results/ranger-imp", 
+                         pattern="bio_RF", full.names=T, all.files=T) %>% 
+  map_dfr(readRDS) 
 
+bio.imp.group <- bio.imp %>% 
+  group_by(VAR) %>% 
+  summarise(mean = mean(VI),
+            median = median(VI))
+
+bio.imp.group$varfull <- c("Precipitation seasonality","Precipitation of the warmest quarter","Precipitation of the coldest quarter","Mean diurnal range","Temperature seasonality","Mean temperature of the wettest quarter","Mean temperature of the driest quarter","Elevation","Farm Resource Regions","Growing degree days","Irrigation","Subsoil pH","Shannon's Diversity Index","Slope","Topsoil cation exchange capacity ~ soil","Topsoil organic carbon","Topsoil reference bulk density","Total precipitation","Year")
+
+bio_imp_plot <- ggplot(bio.imp.group, aes(x=reorder(varfull, mean), y=mean)) + 
+  geom_point() +
+  geom_segment(aes(x=varfull,xend=varfull,y=0,yend=mean)) +
+  ylab("Increase in node purity") +
+  xlab("") +
+  coord_flip() +
+  theme_minimal()
+
+ggsave(bio_imp_plot, file = './viz/bio_imp_plot.png', dpi = 300, width = 7, height = 7)
 ```
 
 
@@ -176,13 +195,33 @@ ggsave("./viz/Figure4.png", dpi = 400, width = 170, height  = 240, units = "mm",
 
 ```
 
+## Figure 5. Farm(er) ensemble permutation variable importance. The 30 covariates appear on the y-axis and their contribution to node purity on the x-axis. Variables are listed in order of importance, with the most important variable being percent agricultural acres irrigated and least important being grower years of experience on-farm; see Table 1 for variable names, units, and descriptions.
+```{r}
+farmer.imp <- list.files(path="results/ranger-imp", 
+                         pattern="farmer_RF", full.names=T, all.files=T) %>% 
+  map_dfr(readRDS) 
+
+farmer.imp.group <- farmer.imp %>% 
+  group_by(VAR) %>% 
+  summarise(mean = mean(VI),
+            median = median(VI))
+
+farmer.imp.group$varfull <- c("Median farm size", "Precipitation seasonality","Precipitation of the warmest quarter","Precipitation of the coldest quarter","Mean diurnal range","Temperature seasonality","Mean temperature of the wettest quarter","Mean temperature of the driest quarter","Chemicals", "Elevation","Years experience", "Fertilizer", "Farm Resource Regions","Growing degree days", "Government receipts", "Insurance", "Labor", "Machinery", "% farming as primary occupation", "Corn acreage", "Irrigation","Subsoil pH","Shannon's Diversity Index","Slope","Topsoil cation exchange capacity ~ soil","Topsoil organic carbon","Topsoil reference bulk density","% tenants", "Total precipitation","Year")
+
+farmer_imp_plot <- ggplot(farmer.imp.group, aes(x=reorder(varfull, mean), y=mean)) + 
+  geom_point() +
+  geom_segment(aes(x=varfull,xend=varfull,y=0,yend=mean)) +
+  ylab("Increase in node purity") +
+  xlab("") +
+  coord_flip() +
+  theme_minimal()
+
+ggsave(farmer_imp_plot, file = './viz/farmer_imp_plot.png', dpi = 300, width = 7, height = 7)
+```
 
 #######################################################################################################################
 #### POTENTIALLY TRASH. BELOW...
 #######################################################################################################################
-
-
-
 
 # Let's visualize error in yield each year
 ```{r}
