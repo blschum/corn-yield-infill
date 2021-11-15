@@ -357,60 +357,6 @@ pdp_bv18 <- pdp::partial(rf,pred.var = "BV18")
 saveRDS(pdp_bv18, "./results/ranger-pdp/BV18.RDS")
 ```
 
-## Biophysical partial dependence plots
-```{r}
-library(tidyverse)
-# irrigation
-irrs <- yield_RF %>% summarise(mean = mean(PERC_IRR), sd = sd(PERC_IRR))
-pdp_irr <- pdp::partial(rf,pred.var = "PERC_IRR")
-pdp_irr$VAR = "Irrigation (% ag acres)"  
-
-irrps <- pdp_irr %>%  
-  dplyr::mutate(xs = (pdp_irr$PERC_IRR - irrs$mean) / irrs$sd)
-# corn sq km
-corns <- yield_RF_reduced %>% summarise(mean = mean(CORN_SQKM), sd = sd(CORN_SQKM))
-cornp <- as.data.frame(partialPlot(rf_yield_reduced,yield_RF_reduced,"CORN_SQKM"))
-cornp$VAR <- "Area cultivated in corn (sq km)"
-cornps <- cornp %>% mutate(xs = (x - corns$mean) / corns$sd)
-# GDD
-gdds <- yield_RF_reduced %>% summarise(mean = mean(GDD), sd = sd(GDD))
-gddp <- as.data.frame(partialPlot(rf_yield_reduced,yield_RF_reduced,"GDD"))
-gddp$VAR <- "Growing degree days (C)"
-gddps <- gddp %>% mutate(xs = (x - gdds$mean) / gdds$sd)
-# BV18
-bv18s <- yield_RF_reduced %>% summarise(mean = mean(BV18), sd = sd(BV18))
-bv18p <- as.data.frame(partialPlot(rf_yield_reduced,yield_RF_reduced,"BV18"))
-bv18p$VAR <- "Precipitation of warmest quarter (mm)"
-bv18ps <- bv18p %>% mutate(xs = (x - bv18s$mean) / bv18s$sd)
-# BV2
-partialPlot(rf_yield_reduced,yield_RF_reduced,BV2)
-bv2s <- yield_RF_reduced %>% summarise(mean = mean(BV2), sd = sd(BV2))
-bv2p <- as.data.frame(partialPlot(rf_yield_reduced,yield_RF_reduced,"BV2"))
-bv2p$VAR <- "Mean diurnal range (C)"
-bv2ps <- bv2p %>% mutate(xs = (x - bv2s$mean) / bv2s$sd)
-# SDI
-SDIs <- yield_RF_reduced %>% summarise(mean = mean(SDI_CDL_AG), sd = sd(SDI_CDL_AG))
-sdip <- as.data.frame(partialPlot(rf_yield_reduced,yield_RF_reduced,"SDI_CDL_AG"))
-sdip$VAR <- "Shannon's Diversity Index"
-sdips <- sdip %>% mutate(xs = (x - SDIs$mean) / SDIs$sd)
-
-# merge into one dataframe
-pdp <- rbind(irrps,cornps,gddps,bv18ps,bv2ps,sdips)
-
-input_pp <- ggplot(pdp) +   
-  geom_line(aes(x = xs, y = y, color = VAR), size = 1.2) + 
-  theme_classic() +
-  theme(legend.title = element_blank(), legend.position = "bottom" ) + 
-  scale_colour_manual(values=c("#336633", "#99CC99", "#CC6633", "#4A7DA5", "#99CCFF", "#CCCC99")) +
-  labs(x = "Standardized values",        
-       y = "Predicted Yield (bu/acre)") +   
-  theme(text = element_text(size=12)) 
-
-input_pp
-
-ggsave(input_pp, file = './viz/RFpdp_multiple.png', dpi = 300)
-```
-
 ## Take the average of the performance results for *n* = 100 RFs
 ```{r}
 library(tidyverse)
@@ -550,7 +496,7 @@ ntree = 2000, mtry = 19, node size = 4, sample size = 0.800, OOB RMSE = 17.53468
 ```{r}
 set.seed(1234)
 
-for (iter in 1:100){
+for (iter in 1:1){
   cat(paste('iter = ', iter, ':: '))
   
   # train the model
@@ -597,6 +543,17 @@ for (iter in 1:100){
 
 }
 
+# Partial dependence, taken from the first iteration of ranger, above
+pdp_fert <- pdp::partial(rf,pred.var = "fert")
+saveRDS(pdp_fert, "./results/ranger-pdp/fert.RDS")
+pdp_chem <- pdp::partial(rf,pred.var = "chem")
+saveRDS(pdp_chem, "./results/ranger-pdp/chem.RDS")
+pdp_corn <- pdp::partial(rf,pred.var = "perc_corn")
+saveRDS(pdp_corn, "./results/ranger-pdp/corn_acreage.RDS")
+pdp_insur <- pdp::partial(rf,pred.var = "insur_acres")
+saveRDS(pdp_insur, "./results/ranger-pdp/insur.RDS")
+pdp_gvt <- pdp::partial(rf,pred.var = "gvt_prog")
+saveRDS(pdp_gvt, "./results/ranger-pdp/gvt_prog.RDS")
 ```
 
 ## Take the average of the results for n = 100 RFs

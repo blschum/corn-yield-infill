@@ -1,0 +1,96 @@
+---
+title: "Corn Yield Random Forest: SI Visualizations"
+author: "Britta Schumacher"
+date: "Last updated: `r format(Sys.time(), '%d %B, %Y')`"
+output: 
+  html_document:
+    theme: yeti
+    toc: yes
+    toc_float: true
+    code_folding: hide
+---
+
+# Bring in the data, clean it up, and start visualizing.
+
+Let's first bring in the data, clean it up, and make it spatial!
+```{r warning = F, message = F}
+library(ggplot2)
+library(sp)
+library(tidyverse)
+library(tmap)
+library(RColorBrewer)
+library(rgeos)
+library(spdplyr)
+library(viridis)
+library(rgdal)
+library(rgeos)
+library(ggthemes)
+library(ggalt)
+library(maps)
+library(maptools)
+library(grid)
+library(biscale)
+library(ggcorrplot)
+library(ggimage)
+library(png)
+library(gridExtra)
+library(cowplot)
+library(wesanderson)
+library(ggpubr)
+library(egg)
+
+# Bring in data
+bioph_preds <- readRDS('./data/data-out/ensemble_bioph_preds.RDS')
+farmer_preds <- readRDS('./data/data-out/ensemble_farm_preds.RDS')
+ctys <- readRDS("./data/county.RDS")
+state <- readRDS("./data/states.RDS")
+corn_yield <- readRDS("./data/yieldRF.RDS")
+```
+
+## SI Figure 1. Correlation matrix for continuous predictors and corn yield in A) biophysical; and b) farm(er) RF ensembles (see SI Table 1, above for variables, units, and descriptions associated with variable names listed below)
+```{r}
+corn_yield <- readRDS("./data/yieldRF.RDS")
+corn_bioph <- corn_yield %>% select(GEOID,YEAR,YIELD,PERC_IRR,FRR,GDD,BV2,BV18,SDI_CDL_AG,BV9,BV4,TP,ELEVATION,S_PH_H2O,SLOPE,BV8,BV19,T_CEC_SOIL,BV15,T_REF_BULK_DENSITY,T_OC)
+corn_bioph <- corn_bioph %>% dplyr::select(-c(GEOID,FRR,YEAR))
+
+# show correlations
+corr_yield <- round(cor(corn_bioph[1:18]), 2)
+p.mat_yield <- cor_pmat(corn_bioph[c(1:18)])
+corrplot_bioph <- ggcorrplot(corr_yield, hc.order = FALSE, p.mat = p.mat_yield, outline.col = "white", type = "lower", insig = "blank",lab = F, ggtheme = ggplot2::theme_minimal, colors = c("#6D9EC1", "white", "#E46726"))
+
+ggsave(filename = "./viz/SIFigure1A.png", plot = corrplot_bioph, dpi = 300, width = 7, height = 7)
+
+corn_farm <- corn_yield %>% 
+  select(!GEOID) %>% 
+  select(YEAR,YIELD,PERC_IRR,FRR,GDD,BV2,BV18,SDI_CDL_AG,BV9,BV4,TP,ELEVATION,S_PH_H2O,SLOPE,BV8,BV19,T_CEC_SOIL,BV15,T_REF_BULK_DENSITY,T_OC,29:39) %>% 
+  select(-c(FRR,YEAR))
+
+# show correlations
+corr_yield <- round(cor(corn_farm[1:29]), 2)
+p.mat_yield <- cor_pmat(corn_farm[c(1:29)])
+corrplot_farm <- ggcorrplot(corr_yield, hc.order = FALSE, p.mat = p.mat_yield, outline.col = "white", type = "lower", insig = "blank",lab = F, ggtheme = ggplot2::theme_minimal, colors = c("#6D9EC1", "white", "#E46726")
+                            )
+
+ggsave(filename = "./viz/SIFigure1B.png", plot = corrplot_farm, dpi = 300, width = 7, height = 7)
+
+```
+
+## SI Figure X. Partial dependence plots of important variables from biophysical and farm(er) ensembles (raw data, not standardized); Partial dependence on: A) precipitation of the warmest quarter (BV18); B) % cultivated area in corn (perc_corn); C) growing degree days (GDD); D) irrigation (PERC_IRR); E) Shannon’s Diversity Index (SDI_CDL_AG); F) mean diurnal range (BV2); G) chemicals ($/acre); H) fertilizers ($/acre); I) government receipts ($/acre); and J) insurance ($/acre).
+
+```{r}
+pdp.all <- readRDS("./results/ranger-pdp/pdp-data.RDS")
+
+pdp.all.viz <- ggplot(pdp.all) +   
+  geom_line(aes(x = VALUE, y = yhat)) + 
+  theme_classic() +
+  labs(x = "Raw Value",        
+       y = "Predicted Yield (bu/acre)")  +
+  facet_wrap(~ VAR, scales = "free", ncol = 3)+  
+  theme_minimal() +
+  theme(strip.text.x = element_text(size=6)) 
+
+tag_facet(pdp.all.viz, size = 3, vjust = 0.9)
+
+ggsave("./viz/SIFigureX.png", dpi = 400, height = 8, width = 6, units = "in")
+```
+
