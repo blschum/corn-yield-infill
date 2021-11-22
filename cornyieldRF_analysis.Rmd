@@ -678,6 +678,61 @@ prediction_full_farm_summary <- prediction_full_farm %>%
   print(full_farmer_list)
 ```
 
+## Take the average of the infill results for *n* = 100 biophysical RFs
+```{r}
+# build full list of files and bring them into the R environment
+bioph_infill <- readRDS("./results/ranger-infill/bio_infill_100.RDS")
+
+names(bioph_infill)[21:ncol(bioph_infill)] <- unlist(mapply(function(x,y) paste(x, seq(1,y), sep="_"), "PREDS", 100))
+
+bioph_infill <- bioph_infill %>% pivot_longer(cols = c(21:120), names_to = "PRED_NUM", values_to = "PREDS") %>% select(-PRED_NUM)
+
+infill <- readRDS("./data/true-test-infillobs.RDS")
+bioph_infill <- merge(bioph_infill, infill, by = c("YEAR","PERC_IRR","FRR","GDD","BV2","BV18","SDI_CDL_AG","BV9","BV4","TP","ELEVATION","S_PH_H2O","SLOPE","BV8","BV19","T_CEC_SOIL","BV15","T_REF_BULK_DENSITY","T_OC"))
+
+bioph_infill_summary <- bioph_infill %>% 
+  #mutate(FRR = as.numeric(FRR)) %>% 
+  dplyr::group_by(GEOID, YEAR) %>% 
+  summarize(average_prediction = ave(PREDS)) %>% 
+  distinct() 
+
+saveRDS(bioph_infill_summary, "./data/data-out/ensemble_bioph_infill.RDS")
+```
+
+## Take the average of the infill results for *n* = 100 farm(er) RFs
+```{r}
+# build full list of files and bring them into the R environment
+farmer_infill <- readRDS("./results/ranger-infill/farmer_infill_100.RDS")
+farmer_infill <- farmer_infill[-c(32:33)]
+
+names(farmer_infill)[32:ncol(farmer_infill)] <- unlist(mapply(function(x,y) paste(x, seq(1,y), sep="_"), "PREDS", 100))
+
+farmer_infill <- farmer_infill %>% pivot_longer(cols = c(32:131), names_to = "PRED_NUM", values_to = "PREDS") %>% select(-PRED_NUM)
+
+farmer_infill <- merge(farmer_infill, infill, by = c("YEAR","PERC_IRR","FRR","GDD","BV2","BV18","SDI_CDL_AG","BV9","BV4","TP","ELEVATION","S_PH_H2O","SLOPE","BV8","BV19","T_CEC_SOIL","BV15","T_REF_BULK_DENSITY","T_OC"))
+
+farmer_infill_summary <- farmer_infill %>% 
+  #mutate(FRR = as.numeric(FRR)) %>% 
+  dplyr::group_by(GEOID, YEAR) %>% 
+  summarize(average_prediction = ave(PREDS)) %>% 
+  distinct() 
+
+saveRDS(farmer_infill_summary, "./data/data-out/ensemble_farmer_infill.RDS")
+```
+
+## Compare biophysical and farm(er) predictions
+```{r}
+infill_diff <- merge(bioph_infill_summary, farmer_infill_summary, by = c("GEOID", "YEAR"))
+
+colnames(infill_diff) <- c("GEOID", "YEAR", "BIOPH", "FARMER")
+
+infill_diff <- infill_diff %>% 
+  mutate(DIFF = BIOPH-FARMER)
+
+saveRDS(infill_diff, "./data/data-out/ensemble_infill_diff.RDS")
+```
+
+
 #########################################################################################################################################################################################################################################
 
 ---

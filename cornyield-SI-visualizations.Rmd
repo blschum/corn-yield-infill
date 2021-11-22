@@ -45,6 +45,26 @@ farmer_preds <- readRDS('./data/data-out/ensemble_farm_preds.RDS')
 ctys <- readRDS("./data/county.RDS")
 state <- readRDS("./data/states.RDS")
 corn_yield <- readRDS("./data/yieldRF.RDS")
+
+# build frr spatial
+frr <- read.csv("./data/FRR_data.csv") 
+frr <- frr[,1:2]
+colnames(frr)<- c("GEOID", "FRR")
+frr$GEOID <- str_pad(frr$GEOID, width = 5, side = "left", pad= "0") 
+
+#Make spatial:
+frr_shp <- merge(ctys, frr, by = "GEOID")
+spplot(frr_shp, "FRR")
+
+getmode <- function(v) {
+  uniqv <- unique(v)
+  uniqv[which.max(tabulate(match(v, uniqv)))]
+}
+
+#Aggregate counties to the regional boundaries:
+library(maptools)
+frr_agg <- unionSpatialPolygons(SpP = frr_shp, IDs = frr_shp$FRR)
+frr_final <- aggregate(frr_shp["FRR"], frr_agg, FUN = getmode)
 ```
 
 ## SI Figure 1. Correlation matrix for continuous predictors and corn yield in A) biophysical; and b) farm(er) RF ensembles (see SI Table 1, above for variables, units, and descriptions associated with variable names listed below)
@@ -75,7 +95,7 @@ ggsave(filename = "./viz/SIFigure1B.png", plot = corrplot_farm, dpi = 300, width
 
 ```
 
-## SI Figure X. Partial dependence plots of important variables from biophysical and farm(er) ensembles (raw data, not standardized); Partial dependence on: A) precipitation of the warmest quarter (BV18); B) % cultivated area in corn (perc_corn); C) growing degree days (GDD); D) irrigation (PERC_IRR); E) Shannon’s Diversity Index (SDI_CDL_AG); F) mean diurnal range (BV2); G) chemicals ($/acre); H) fertilizers ($/acre); I) government receipts ($/acre); and J) insurance ($/acre).
+## SI Figure 2. Partial dependence plots of important variables from biophysical and farm(er) ensembles (raw data, not standardized); Partial dependence on: A) precipitation of the warmest quarter (BV18); B) % cultivated area in corn (perc_corn); C) growing degree days (GDD); D) irrigation (PERC_IRR); E) Shannon’s Diversity Index (SDI_CDL_AG); F) mean diurnal range (BV2); G) chemicals ($/acre); H) fertilizers ($/acre); I) government receipts ($/acre); and J) insurance ($/acre).
 
 ```{r}
 pdp.all <- readRDS("./results/ranger-pdp/pdp-data.RDS")
@@ -91,6 +111,99 @@ pdp.all.viz <- ggplot(pdp.all) +
 
 tag_facet(pdp.all.viz, size = 3, vjust = 0.9)
 
-ggsave("./viz/SIFigureX.png", dpi = 400, height = 8, width = 6, units = "in")
+ggsave("./viz/SIFigure2.png", dpi = 400, height = 8, width = 6, units = "in")
+```
+
+SI Figure 3. Bivariate choropleth constructed by binning county-level average corn yield (bushels/acre) and percent acres cultivated in corn on agricultural lands from 2008-2018 into thirds; each tercile is then paired and binned into distinct categories. Yellow indicates counties with high average corn yields and an agricultural landscape dominated by corn production, while purple indicates counties with low average yields and a low percentage of agricultural acres in corn. Gray counties indicate missing data.
+```{r}
+yield_dom <- corn_yield %>% dplyr::select(GEOID, YIELD, YEAR, perc_corn) %>% group_by(GEOID) %>%  summarise(YIELD = mean(YIELD), perc_corn = mean(perc_corn))
+
+#first, build plot to show break-points and number of counties in each bin
+#a.v is corn yield = y, p.v. is proportion corn acres = x
+y.v<-quantile(yield_dom$YIELD,c(0.33,0.66,1), na.rm = T)
+p.v<-quantile(yield_dom$prop_corn,c(0.33,0.66,1), na.rm = T)
+
+yield_dom_new <- yield_dom %>% 
+  mutate(y = ifelse(YIELD<y.v[1],1,ifelse(YIELD<y.v[2],2,3)) ,
+                     x= ifelse(perc_corn<p.v[1],1,ifelse(perc_corn<p.v[2],2,3))) 
+
+p <- ggplot(data=yield_dom_new,aes(x=perc_corn,y=YIELD,color=atan(y/x),alpha=x+y))+
+  geom_point(size=1)+  
+  guides(alpha=F,color=F)+
+  geom_hline(yintercept=y.v,color="gray20",linetype=2)+
+  geom_vline(xintercept=p.v,color="gray20",linetype=2)+
+  scale_color_viridis()+
+  theme_minimal()+
+  theme(plot.caption=element_text(size = 9, hjust=0),
+        panel.grid=element_blank()) +
+  labs(x="Corn dominance on agricultural land",
+       y="Average corn yield (bushels/acre)") 
+p
+
+# Bivariate chloropleth (proportion corn acres/ag acres & corn yield) ~ 2017
+# subset data and create variables
+yield_bivar <- bi_class(yield_dom, x = YIELD, y = perc_corn, style = "quantile", dim = 3)
+
+yield_bivar <- yield_bivar %>% mutate(bi_name = ifelse(bi_class == "1-1", "LYLPC",
+ifelse(bi_class == "1-2", "LYMPC",
+ifelse(bi_class == "1-3", "LYHPC",
+ifelse(bi_class == "2-1", "MYLPC",
+ifelse(bi_class == "2-2", "MYMPC",
+ifelse(bi_class == "2-3", "MYHPC",
+ifelse(bi_class == "3-1", "HYLPC",
+ifelse(bi_class == "3-2", "HYMPC",
+ifelse(bi_class == "3-3", "HYHPC",
+ "NA"))))))))))
+
+yield_bivar$bi_name <- factor(yield_bivar$bi_name, levels = c("LYLPC",
+"LYMPC","LYHPC","MYLPC","MYMPC","MYHPC","HYLPC","HYMPC","HYHPC"))
+
+d_complete <- merge(ctys, yield_bivar, by = "GEOID", all = T)
+library(tmap)
+library(viridisLite)
+
+pal <- viridis(9)
+
+map <- tm_shape(d_complete) +
+  tm_polygons("bi_name",
+    palette = pal, 
+    border.col = "transparent", 
+    legend.show = FALSE) +
+    tm_layout(frame = FALSE,
+            legend.hist.size = 0.5) +
+  tm_shape(frr_final) +
+  tm_borders(col = "black")
+
+map
+
+tmap_save(map, file = paste0('./viz/SIFigure3-nolegend.png'), dpi = 400)
+
+```
+
+SI Figure 4.
+
+```{r}
+# box whisker comparing difficult to regress places and easy v. irrigated extent
+ibw <- bioph_preds
+ibw$cat <- ifelse(ibw$error < -10 | ibw$error > 10, "Greater than |10| bu/acre", "Less than |10| bu/acre")
+ibw$cat <- as.factor(ibw$cat)
+
+ibw <- merge(ibw, corn_yield, by = c("GEOID", "YEAR", "YIELD"))
+
+bw <- ggplot(ibw, aes(x=YEAR, y=PERC_IRR, fill=cat)) +
+  geom_boxplot() +
+  theme_classic() +
+  theme(legend.position = "bottom") +
+  theme(axis.title=element_text(size=14),
+        axis.text=element_text(size=11)) +
+  theme(axis.title.x=element_blank(),
+        axis.text.x=element_text(size=9, angle = 45, hjust = 1)) +
+  ylab("Percent Irrigated Agricultural Land") +
+  scale_fill_manual(values=c("#99CCFF", "#4A7DA5")) +
+  coord_cartesian(ylim = c(0, 25))  +
+  guides(fill=guide_legend(title="Error"))
+bw
+
+ggsave(filename = "./viz/SIFigure4.png", plot = bw, dpi = 400, width = 7, height = 5)
 ```
 
