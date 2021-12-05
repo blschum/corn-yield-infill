@@ -121,6 +121,10 @@ na_count <- sapply(h, function(x) sum(is.na(x)))
 
 # find counties with 12 NAs/column and remove; these counties have no data for these variables across time (2007 - 2012 - or 2017)
 remove <- h %>% group_by(GEOID) %>% summarise_all(funs(sum(is.na(.)))) %>%  filter_all(any_vars(. == 12)) # remove n = 234 counties
+remove <- merge(remove, coa, by = "GEOID")
+remove <- remove %>% select(GEOID, county.y) %>% unique()
+
+write.csv(remove, "./results/impute-remove.csv")
 
 h <- h %>% filter(!GEOID %in% remove$GEOID) # n = 2874 remaining counties with at least some data!
 ```

@@ -1,0 +1,235 @@
+,GEOID,county.y,state
+1,4001,Apache,Arizona
+6,4005,Coconino,Arizona
+11,4007,Gila,Arizona
+16,4012,La Paz,Arizona
+21,4019,Pima,Arizona
+26,5013,Calhoun,Arkansas
+31,5025,Cleveland,Arkansas
+36,5039,Dallas,Arkansas
+41,6003,Alpine,California
+46,6015,Del Norte,California
+51,6051,Mono,California
+56,6057,Nevada,California
+61,6075,San Francisco,California
+66,6105,Trinity,California
+71,8014,Broomfield,Colorado
+76,8019,Clear Creek,Colorado
+81,8031,Denver,Colorado
+86,8047,Gilpin,Colorado
+91,8053,Hinsdale,Colorado
+96,8065,Lake,Colorado
+101,8079,Mineral,Colorado
+106,8097,Pitkin,Colorado
+111,8111,San Juan,Colorado
+116,8117,Summit,Colorado
+121,11001,District of Columbia,
+126,12003,Baker,Florida
+131,12005,Bay,Florida
+136,12037,Franklin,Florida
+141,12045,Gulf,Florida
+146,12073,Leon,Florida
+151,12077,Liberty,Florida
+156,12087,Monroe,Florida
+161,12089,Nassau,Florida
+166,12103,Pinellas,Florida
+171,12123,Taylor,Florida
+176,12129,Wakulla,Florida
+181,13029,Bryan,Georgia
+186,13039,Camden,Georgia
+191,13053,Chattahoochee,Georgia
+196,13059,Clarke,Georgia
+201,13063,Clayton,Georgia
+206,13065,Clinch,Georgia
+211,13089,DeKalb,Georgia
+216,13097,Douglas,Georgia
+221,13101,Echols,Georgia
+226,13127,Glynn,Georgia
+231,13179,Liberty,Georgia
+236,13183,Long,Georgia
+241,13191,McIntosh,Georgia
+246,13215,Muscogee,Georgia
+251,13225,Peach,Georgia
+256,13239,Quitman,Georgia
+261,13247,Rockdale,Georgia
+266,13263,Talbot,Georgia
+271,13265,Taliaferro,Georgia
+276,13281,Towns,Georgia
+281,13289,Twiggs,Georgia
+286,16003,Adams,Idaho
+291,16015,Boise,Idaho
+296,16017,Bonner,Idaho
+301,16079,Shoshone,Idaho
+306,16085,Valley,Idaho
+311,17031,Cook,Illinois
+316,17043,DuPage,Illinois
+321,18013,Brown,Indiana
+326,21013,Bell,Kentucky
+331,21071,Floyd,Kentucky
+336,21095,Harlan,Kentucky
+341,21115,Johnson,Kentucky
+346,21119,Knott,Kentucky
+351,21121,Knox,Kentucky
+356,21129,Lee,Kentucky
+361,21131,Leslie,Kentucky
+366,21133,Letcher,Kentucky
+371,21159,Martin,Kentucky
+376,21193,Perry,Kentucky
+381,21195,Pike,Kentucky
+386,22033,East Baton Rouge,Louisiana
+391,22051,Jefferson,Louisiana
+396,22059,LaSalle,Louisiana
+401,22071,Orleans,Louisiana
+406,22087,St. Bernard,Louisiana
+411,22089,St. Charles,Louisiana
+416,23023,Sagadahoc,Maine
+421,24510,Baltimore,Lmaryland
+426,25007,Dukes,Massachusetts
+431,25019,Nantucket,Massachusetts
+436,25025,Suffolk,Massachusetts
+441,26013,Baraga,Michigan
+446,26039,Crawford,Michigan
+451,26053,Gogebic,Michigan
+456,26083,Keweenaw,Michigan
+461,26095,Luce,Michigan
+466,26119,Montmorency,Michigan
+471,26135,Oscoda,Michigan
+476,26143,Roscommon,Michigan
+481,26153,Schoolcraft,Michigan
+486,27031,Cook,Minnesota
+491,27075,Lake,Minnesota
+496,27123,Ramsey,Minnesota
+501,28129,Smith,Mississippi
+506,29510,St. Louis,Missouri
+511,30053,Lincoln,Montana
+516,30061,Mineral,Montana
+521,30093,Silver Bow,Montana
+526,31075,Grant,Nebraska
+531,32009,Esmeralda,Nevada
+536,32011,Eureka,Nevada
+541,32017,Lincoln,Nevada
+546,32021,Mineral,Nevada
+551,32029,Storey,Nevada
+556,32510,Carson City,Nevada
+561,33003,Carroll,New Hampshire
+566,33019,Sullivan,New Hampshire
+571,34003,Bergen,New Jersey
+576,34009,Cape May,New Jersey
+581,34013,Essex,New Jersey
+586,34017,Hudson,New Jersey
+591,34029,Ocean,New Jersey
+596,34031,Passaic,New Jersey
+601,34039,Union,New Jersey
+606,35021,Harding,New Mexico
+611,35028,Los Alamos,New Mexico
+616,35049,Santa Fe,New Mexico
+621,36005,Bronx,New York
+626,36041,Hamilton,New York
+631,36047,Kings,New York
+636,36059,Nassau,New York
+641,36061,New York,New York
+646,36079,Putnam,New York
+651,36081,Queens,New York
+656,36085,Richmond,New York
+661,36087,Rockland,New York
+666,36113,Warren,New York
+671,36119,Westchester,New York
+676,37055,Dare,North Carolina
+681,37129,New Hanover,North Carolina
+686,41007,Clatsop,Oregon
+691,41041,Lincoln,Oregon
+696,41057,Tillamook,Oregon
+701,42023,Cameron,Pennsylvania
+706,42045,Delaware,Pennsylvania
+711,42053,Forest,Pennsylvania
+716,42101,Philadelphia,Pennsylvania
+721,42103,Pike,Pennsylvania
+726,44001,Bristol,South Dakota
+731,44003,Kent,South Dakota
+736,47171,Unicoi,Tennessee
+741,48007,Aransas,Texas
+746,48103,Crane,Texas
+751,48135,Ector,Texas
+756,48183,Gregg,Texas
+761,48261,Kenedy,Texas
+766,48269,King,Texas
+771,48301,Loving,Texas
+776,48377,Presidio,Texas
+781,48475,Ward,Texas
+786,48495,Winkler,Texas
+791,49009,Daggett,Utah
+796,49019,Grand,Utah
+801,49047,Uintah,Utah
+806,51013,Arlington,Virginia
+811,51027,Buchanan,Virginia
+816,51051,Dickenson,Virginia
+821,51057,Essex,Virginia
+826,51510,Alexandria,Virginia
+831,51520,Bristol,Virginia
+836,51530,Buena Vista,Virginia
+841,51540,Charlottesville,Virginia
+846,51570,Colonial Heights,Virginia
+851,51580,Covington,Virginia
+856,51590,Danville,Virginia
+861,51595,Emporia,Virginia
+866,51600,Fairfax,Virginia
+871,51610,Falls Church,Virginia
+876,51620,Franklin,Virginia
+881,51630,Fredericksburg,Virginia
+886,51640,Galax,Virginia
+891,51650,Hampton,Virginia
+896,51660,Harrisonburg,Virginia
+901,51670,Hopewell,Virginia
+906,51678,Lexington,Virginia
+911,51680,Lynchburg,Virginia
+916,51683,Manassas,Virginia
+921,51685,Manassas Park,Virginia
+926,51690,Martinsville,Virginia
+931,51700,Newport News,Virginia
+936,51710,Norfolk,Virginia
+941,51720,Norton,Virginia
+946,51730,Petersburg,Virginia
+951,51735,Poquoson,Virginia
+956,51740,Portsmouth,Virginia
+961,51750,Radford,Virginia
+966,51760,Richmond,Virginia
+971,51770,Roanoke,Virginia
+976,51775,Salem,Virginia
+981,51790,Staunton,Virginia
+986,51820,Waynesboro,Virginia
+991,51830,Williamsburg,Virginia
+996,51840,Winchester,Virginia
+1001,53009,Clallam,West Virginia
+1006,53031,Jefferson,West Virginia
+1011,53045,Mason,West Virginia
+1016,53051,Pend Oreille,West Virginia
+1021,53055,San Juan,West Virginia
+1026,53059,Skamania,West Virginia
+1031,53069,Wahkiakum,West Virginia
+1036,54005,Boone,Wisconsin
+1041,54007,Braxton,Wisconsin
+1046,54009,Brooke,Wisconsin
+1051,54013,Calhoun,Wisconsin
+1056,54015,Clay,Wisconsin
+1061,54017,Doddridge,Wisconsin
+1066,54019,Fayette,Wisconsin
+1071,54021,Gilmer,Wisconsin
+1076,54039,Kanawha,Wisconsin
+1081,54041,Lewis,Wisconsin
+1086,54045,Logan,Wisconsin
+1091,54047,McDowell,Wisconsin
+1096,54051,Marshall,Wisconsin
+1101,54055,Mercer,Wisconsin
+1106,54059,Mingo,Wisconsin
+1111,54073,Pleasants,Wisconsin
+1116,54081,Raleigh,Wisconsin
+1121,54085,Ritchie,Wisconsin
+1126,54089,Summers,Wisconsin
+1131,54091,Taylor,Wisconsin
+1136,54095,Tyler,Wisconsin
+1141,54101,Webster,Wisconsin
+1146,54103,Wetzel,Wisconsin
+1151,54109,Wyoming,Wisconsin
+1156,55037,Florence,Wyoming
+1161,55078,Menominee,Wyoming
+1166,55125,Vilas,Wyoming
