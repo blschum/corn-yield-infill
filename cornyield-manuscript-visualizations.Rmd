@@ -223,21 +223,26 @@ ggsave(farmer_imp_plot, file = './viz/farmer_imp_plot.png', dpi = 300, width = 7
 
 ## Figure 6. US corn yield in ensemble predicted infilled dataset.
 ```{r}
+### counties with all 11 years of yield data
+full_report <- corn_yield %>% mutate(tally = 1) %>% group_by(GEOID) %>% summarise(count = sum(tally)) %>% distinct() %>% filter(count == 11)
+  
+fr_sp <- merge(ctys, full_report, by = "GEOID")
+
 #### BIOPHYSICAL
 b_infill <- readRDS("./data/data-out/ensemble_bioph_infill.RDS")
 
-b_sum <- b_infill %>% group_by(GEOID) %>% summarise(ave = mean(average_prediction))
-
+# Take only counties with at least one year of corn yield data
+b_sum <- b_infill %>% group_by(GEOID) %>% summarise(ave = mean(average_prediction)) %>% filter(GEOID %in% y$GEOID)
 
 b_sp <- merge(ctys, b_sum, by = "GEOID")
 
 b <- tm_shape(b_sp) +
-  tm_polygons(col = "ave", breaks = c(25,75,100,125,150,175,200,225), palette = "Oranges", border.col = "transparent", title = "Corn Yield\n(bu/acre)", legend.hist = TRUE) +
+  tm_polygons(col = "ave", breaks = c(35,75,100,125,150,175,200,215), palette = "Oranges", border.col = "transparent", title = "Corn Yield\n(bu/acre)", legend.hist = TRUE) +
   tm_legend(outside = TRUE, hist.width = 1.5) +
   tm_layout(frame = FALSE,
             legend.hist.size = 0.5) +
     tm_shape(frr_final) +
-  tm_borders(col = "black")
+  tm_borders(col = "black") 
 
 b
 tmap_save(tm = b, file = './viz/bioph-infill.png', dpi = 400)
@@ -247,12 +252,13 @@ b2 <- ggdraw() + draw_image(b2, scale = 1.05)
 #### FARMER
 f_infill <- readRDS("./data/data-out/ensemble_farmer_infill.RDS")
 
-f_sum <- f_infill %>% group_by(GEOID) %>% summarise(ave = mean(average_prediction))
+# Take only counties with at least one year of corn yield data
+f_sum <- f_infill %>% group_by(GEOID) %>% summarise(ave = mean(average_prediction)) %>% filter(GEOID %in% y$GEOID)
 
 f_sp <- merge(ctys, f_sum, by = "GEOID")
 
 f <- tm_shape(f_sp) +
-  tm_polygons(col = "ave", breaks = c(25,75,100,125,150,175,200,225), palette = "Oranges", border.col = "transparent", title = "Corn Yield\n(bu/acre)", legend.hist = TRUE) +
+  tm_polygons(col = "ave", breaks = c(40,75,100,125,150,175,200,215), palette = "Oranges", border.col = "transparent", title = "Corn Yield\n(bu/acre)", legend.hist = TRUE) +
   tm_legend(outside = TRUE, hist.width = 1.5) +
   tm_layout(frame = FALSE,
             legend.hist.size = 0.5) +
@@ -267,15 +273,19 @@ f2 <- ggdraw() + draw_image(f2, scale = 1.05)
 #### DIFFERENCE
 diff_infill <- readRDS("./data/data-out/ensemble_infill_diff.RDS")
 
+diff_infill <- diff_infill %>%
+  filter(GEOID %in% y$GEOID)
+
 diff_sum <- diff_infill %>% group_by(GEOID) %>% 
   summarise(BIOPH = mean(BIOPH),
             FARMER = mean(FARMER),
-            DIFF = BIOPH-FARMER)
+            DIFF = BIOPH-FARMER) %>% 
+  filter(GEOID %in% y$GEOID)
 
 diff_sp <- merge(ctys, diff_sum, by = "GEOID")
 
 diff <- tm_shape(diff_sp) +
-  tm_polygons(col = "DIFF", breaks = c(-30,-10,-5,-2.5,0,2.5,5,10,20,45), palette = c("#B2182B", "#D6604D", "#F4A582", "#FDDBC7", "#D1E5F0" ,"#92C5DE","#4393C3", "#2166AC", "#053061"), border.col = "transparent", title = "Average Difference\n(bushels/acre)", legend.hist = TRUE, title = title) +
+  tm_polygons(col = "DIFF", breaks = c(-30,-10,-5,-2.5,0,2.5,5,10,20,30), palette = c("#B2182B", "#D6604D", "#F4A582", "#FDDBC7", "#D1E5F0" ,"#92C5DE","#4393C3", "#2166AC", "#053061"), border.col = "transparent", title = "Average Difference\n(bushels/acre)", legend.hist = TRUE, title = title) +
   tm_legend(outside = TRUE, hist.width = 1.5) +
   tm_layout(frame = FALSE,
             legend.hist.size = 0.5) +
@@ -292,7 +302,7 @@ diff2 <- ggdraw() + draw_image(diff2, scale = 1.05)
 plot_grid(b2, f2, diff2, nrow = 3, labels = c("A.", "B.", "C."))
 ggsave("./viz/Figure6.png", dpi = 400, width = 170, height  = 240, units = "mm", bg = "white")
 
-perc_infill <- diff_infill %>% dplyr::filter(DIFF > -10 & DIFF < 10) #11366/14631 = 77.7%
+perc_infill <- diff_infill %>% dplyr::filter(DIFF > -10 & DIFF < 10) #4762/5677 = 83.9%
 
 ```
 
