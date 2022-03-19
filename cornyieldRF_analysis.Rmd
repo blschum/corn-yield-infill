@@ -587,6 +587,7 @@ saveRDS(prediction_farm_summary, "./data/data-out/ensemble_farm_preds.RDS")
   farmer_list <- list("RMSE" = f_RMSE, "R2" = f_R2, "MAE" = f_MAE, "MAPE" = f_MAPE)
   print(farmer_list)
 ```
+
 ## Take the average of the variable importance results for *n* = 100 RFs
 ```{r}
 # build full list of files and bring them into the R environment

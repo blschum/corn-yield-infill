@@ -1,235 +1,235 @@
-,GEOID,county.y,state
-1,4001,Apache,Arizona
-6,4005,Coconino,Arizona
-11,4007,Gila,Arizona
-16,4012,La Paz,Arizona
-21,4019,Pima,Arizona
-26,5013,Calhoun,Arkansas
-31,5025,Cleveland,Arkansas
-36,5039,Dallas,Arkansas
-41,6003,Alpine,California
-46,6015,Del Norte,California
-51,6051,Mono,California
-56,6057,Nevada,California
-61,6075,San Francisco,California
-66,6105,Trinity,California
-71,8014,Broomfield,Colorado
-76,8019,Clear Creek,Colorado
-81,8031,Denver,Colorado
-86,8047,Gilpin,Colorado
-91,8053,Hinsdale,Colorado
-96,8065,Lake,Colorado
-101,8079,Mineral,Colorado
-106,8097,Pitkin,Colorado
-111,8111,San Juan,Colorado
-116,8117,Summit,Colorado
-121,11001,District of Columbia,
-126,12003,Baker,Florida
-131,12005,Bay,Florida
-136,12037,Franklin,Florida
-141,12045,Gulf,Florida
-146,12073,Leon,Florida
-151,12077,Liberty,Florida
-156,12087,Monroe,Florida
-161,12089,Nassau,Florida
-166,12103,Pinellas,Florida
-171,12123,Taylor,Florida
-176,12129,Wakulla,Florida
-181,13029,Bryan,Georgia
-186,13039,Camden,Georgia
-191,13053,Chattahoochee,Georgia
-196,13059,Clarke,Georgia
-201,13063,Clayton,Georgia
-206,13065,Clinch,Georgia
-211,13089,DeKalb,Georgia
-216,13097,Douglas,Georgia
-221,13101,Echols,Georgia
-226,13127,Glynn,Georgia
-231,13179,Liberty,Georgia
-236,13183,Long,Georgia
-241,13191,McIntosh,Georgia
-246,13215,Muscogee,Georgia
-251,13225,Peach,Georgia
-256,13239,Quitman,Georgia
-261,13247,Rockdale,Georgia
-266,13263,Talbot,Georgia
-271,13265,Taliaferro,Georgia
-276,13281,Towns,Georgia
-281,13289,Twiggs,Georgia
-286,16003,Adams,Idaho
-291,16015,Boise,Idaho
-296,16017,Bonner,Idaho
-301,16079,Shoshone,Idaho
-306,16085,Valley,Idaho
-311,17031,Cook,Illinois
-316,17043,DuPage,Illinois
-321,18013,Brown,Indiana
-326,21013,Bell,Kentucky
-331,21071,Floyd,Kentucky
-336,21095,Harlan,Kentucky
-341,21115,Johnson,Kentucky
-346,21119,Knott,Kentucky
-351,21121,Knox,Kentucky
-356,21129,Lee,Kentucky
-361,21131,Leslie,Kentucky
-366,21133,Letcher,Kentucky
-371,21159,Martin,Kentucky
-376,21193,Perry,Kentucky
-381,21195,Pike,Kentucky
-386,22033,East Baton Rouge,Louisiana
-391,22051,Jefferson,Louisiana
-396,22059,LaSalle,Louisiana
-401,22071,Orleans,Louisiana
-406,22087,St. Bernard,Louisiana
-411,22089,St. Charles,Louisiana
-416,23023,Sagadahoc,Maine
-421,24510,Baltimore,Lmaryland
-426,25007,Dukes,Massachusetts
-431,25019,Nantucket,Massachusetts
-436,25025,Suffolk,Massachusetts
-441,26013,Baraga,Michigan
-446,26039,Crawford,Michigan
-451,26053,Gogebic,Michigan
-456,26083,Keweenaw,Michigan
-461,26095,Luce,Michigan
-466,26119,Montmorency,Michigan
-471,26135,Oscoda,Michigan
-476,26143,Roscommon,Michigan
-481,26153,Schoolcraft,Michigan
-486,27031,Cook,Minnesota
-491,27075,Lake,Minnesota
-496,27123,Ramsey,Minnesota
-501,28129,Smith,Mississippi
-506,29510,St. Louis,Missouri
-511,30053,Lincoln,Montana
-516,30061,Mineral,Montana
-521,30093,Silver Bow,Montana
-526,31075,Grant,Nebraska
-531,32009,Esmeralda,Nevada
-536,32011,Eureka,Nevada
-541,32017,Lincoln,Nevada
-546,32021,Mineral,Nevada
-551,32029,Storey,Nevada
-556,32510,Carson City,Nevada
-561,33003,Carroll,New Hampshire
-566,33019,Sullivan,New Hampshire
-571,34003,Bergen,New Jersey
-576,34009,Cape May,New Jersey
-581,34013,Essex,New Jersey
-586,34017,Hudson,New Jersey
-591,34029,Ocean,New Jersey
-596,34031,Passaic,New Jersey
-601,34039,Union,New Jersey
-606,35021,Harding,New Mexico
-611,35028,Los Alamos,New Mexico
-616,35049,Santa Fe,New Mexico
-621,36005,Bronx,New York
-626,36041,Hamilton,New York
-631,36047,Kings,New York
-636,36059,Nassau,New York
-641,36061,New York,New York
-646,36079,Putnam,New York
-651,36081,Queens,New York
-656,36085,Richmond,New York
-661,36087,Rockland,New York
-666,36113,Warren,New York
-671,36119,Westchester,New York
-676,37055,Dare,North Carolina
-681,37129,New Hanover,North Carolina
-686,41007,Clatsop,Oregon
-691,41041,Lincoln,Oregon
-696,41057,Tillamook,Oregon
-701,42023,Cameron,Pennsylvania
-706,42045,Delaware,Pennsylvania
-711,42053,Forest,Pennsylvania
-716,42101,Philadelphia,Pennsylvania
-721,42103,Pike,Pennsylvania
-726,44001,Bristol,South Dakota
-731,44003,Kent,South Dakota
-736,47171,Unicoi,Tennessee
-741,48007,Aransas,Texas
-746,48103,Crane,Texas
-751,48135,Ector,Texas
-756,48183,Gregg,Texas
-761,48261,Kenedy,Texas
-766,48269,King,Texas
-771,48301,Loving,Texas
-776,48377,Presidio,Texas
-781,48475,Ward,Texas
-786,48495,Winkler,Texas
-791,49009,Daggett,Utah
-796,49019,Grand,Utah
-801,49047,Uintah,Utah
-806,51013,Arlington,Virginia
-811,51027,Buchanan,Virginia
-816,51051,Dickenson,Virginia
-821,51057,Essex,Virginia
-826,51510,Alexandria,Virginia
-831,51520,Bristol,Virginia
-836,51530,Buena Vista,Virginia
-841,51540,Charlottesville,Virginia
-846,51570,Colonial Heights,Virginia
-851,51580,Covington,Virginia
-856,51590,Danville,Virginia
-861,51595,Emporia,Virginia
-866,51600,Fairfax,Virginia
-871,51610,Falls Church,Virginia
-876,51620,Franklin,Virginia
-881,51630,Fredericksburg,Virginia
-886,51640,Galax,Virginia
-891,51650,Hampton,Virginia
-896,51660,Harrisonburg,Virginia
-901,51670,Hopewell,Virginia
-906,51678,Lexington,Virginia
-911,51680,Lynchburg,Virginia
-916,51683,Manassas,Virginia
-921,51685,Manassas Park,Virginia
-926,51690,Martinsville,Virginia
-931,51700,Newport News,Virginia
-936,51710,Norfolk,Virginia
-941,51720,Norton,Virginia
-946,51730,Petersburg,Virginia
-951,51735,Poquoson,Virginia
-956,51740,Portsmouth,Virginia
-961,51750,Radford,Virginia
-966,51760,Richmond,Virginia
-971,51770,Roanoke,Virginia
-976,51775,Salem,Virginia
-981,51790,Staunton,Virginia
-986,51820,Waynesboro,Virginia
-991,51830,Williamsburg,Virginia
-996,51840,Winchester,Virginia
-1001,53009,Clallam,West Virginia
-1006,53031,Jefferson,West Virginia
-1011,53045,Mason,West Virginia
-1016,53051,Pend Oreille,West Virginia
-1021,53055,San Juan,West Virginia
-1026,53059,Skamania,West Virginia
-1031,53069,Wahkiakum,West Virginia
-1036,54005,Boone,Wisconsin
-1041,54007,Braxton,Wisconsin
-1046,54009,Brooke,Wisconsin
-1051,54013,Calhoun,Wisconsin
-1056,54015,Clay,Wisconsin
-1061,54017,Doddridge,Wisconsin
-1066,54019,Fayette,Wisconsin
-1071,54021,Gilmer,Wisconsin
-1076,54039,Kanawha,Wisconsin
-1081,54041,Lewis,Wisconsin
-1086,54045,Logan,Wisconsin
-1091,54047,McDowell,Wisconsin
-1096,54051,Marshall,Wisconsin
-1101,54055,Mercer,Wisconsin
-1106,54059,Mingo,Wisconsin
-1111,54073,Pleasants,Wisconsin
-1116,54081,Raleigh,Wisconsin
-1121,54085,Ritchie,Wisconsin
-1126,54089,Summers,Wisconsin
-1131,54091,Taylor,Wisconsin
-1136,54095,Tyler,Wisconsin
-1141,54101,Webster,Wisconsin
-1146,54103,Wetzel,Wisconsin
-1151,54109,Wyoming,Wisconsin
-1156,55037,Florence,Wyoming
-1161,55078,Menominee,Wyoming
-1166,55125,Vilas,Wyoming
+"","GEOID","county.y"
+"1","04001","Apache"
+"6","04005","Coconino"
+"11","04007","Gila"
+"16","04012","La Paz"
+"21","04019","Pima"
+"26","05013","Calhoun"
+"31","05025","Cleveland"
+"36","05039","Dallas"
+"41","06003","Alpine"
+"46","06015","Del Norte"
+"51","06051","Mono"
+"56","06057","Nevada"
+"61","06075","San Francisco"
+"66","06105","Trinity"
+"71","08014","Broomfield"
+"76","08019","Clear Creek"
+"81","08031","Denver"
+"86","08047","Gilpin"
+"91","08053","Hinsdale"
+"96","08065","Lake"
+"101","08079","Mineral"
+"106","08097","Pitkin"
+"111","08111","San Juan"
+"116","08117","Summit"
+"121","11001","District of Columbia"
+"126","12003","Baker"
+"131","12005","Bay"
+"136","12037","Franklin"
+"141","12045","Gulf"
+"146","12073","Leon"
+"151","12077","Liberty"
+"156","12087","Monroe"
+"161","12089","Nassau"
+"166","12103","Pinellas"
+"171","12123","Taylor"
+"176","12129","Wakulla"
+"181","13029","Bryan"
+"186","13039","Camden"
+"191","13053","Chattahoochee"
+"196","13059","Clarke"
+"201","13063","Clayton"
+"206","13065","Clinch"
+"211","13089","DeKalb"
+"216","13097","Douglas"
+"221","13101","Echols"
+"226","13127","Glynn"
+"231","13179","Liberty"
+"236","13183","Long"
+"241","13191","McIntosh"
+"246","13215","Muscogee"
+"251","13225","Peach"
+"256","13239","Quitman"
+"261","13247","Rockdale"
+"266","13263","Talbot"
+"271","13265","Taliaferro"
+"276","13281","Towns"
+"281","13289","Twiggs"
+"286","16003","Adams"
+"291","16015","Boise"
+"296","16017","Bonner"
+"301","16079","Shoshone"
+"306","16085","Valley"
+"311","17031","Cook"
+"316","17043","DuPage"
+"321","18013","Brown"
+"326","21013","Bell"
+"331","21071","Floyd"
+"336","21095","Harlan"
+"341","21115","Johnson"
+"346","21119","Knott"
+"351","21121","Knox"
+"356","21129","Lee"
+"361","21131","Leslie"
+"366","21133","Letcher"
+"371","21159","Martin"
+"376","21193","Perry"
+"381","21195","Pike"
+"386","22033","East Baton Rouge"
+"391","22051","Jefferson"
+"396","22059","LaSalle"
+"401","22071","Orleans"
+"406","22087","St. Bernard"
+"411","22089","St. Charles"
+"416","23023","Sagadahoc"
+"421","24510","Baltimore"
+"426","25007","Dukes"
+"431","25019","Nantucket"
+"436","25025","Suffolk"
+"441","26013","Baraga"
+"446","26039","Crawford"
+"451","26053","Gogebic"
+"456","26083","Keweenaw"
+"461","26095","Luce"
+"466","26119","Montmorency"
+"471","26135","Oscoda"
+"476","26143","Roscommon"
+"481","26153","Schoolcraft"
+"486","27031","Cook"
+"491","27075","Lake"
+"496","27123","Ramsey"
+"501","28129","Smith"
+"506","29510","St. Louis"
+"511","30053","Lincoln"
+"516","30061","Mineral"
+"521","30093","Silver Bow"
+"526","31075","Grant"
+"531","32009","Esmeralda"
+"536","32011","Eureka"
+"541","32017","Lincoln"
+"546","32021","Mineral"
+"551","32029","Storey"
+"556","32510","Carson City"
+"561","33003","Carroll"
+"566","33019","Sullivan"
+"571","34003","Bergen"
+"576","34009","Cape May"
+"581","34013","Essex"
+"586","34017","Hudson"
+"591","34029","Ocean"
+"596","34031","Passaic"
+"601","34039","Union"
+"606","35021","Harding"
+"611","35028","Los Alamos"
+"616","35049","Santa Fe"
+"621","36005","Bronx"
+"626","36041","Hamilton"
+"631","36047","Kings"
+"636","36059","Nassau"
+"641","36061","New York"
+"646","36079","Putnam"
+"651","36081","Queens"
+"656","36085","Richmond"
+"661","36087","Rockland"
+"666","36113","Warren"
+"671","36119","Westchester"
+"676","37055","Dare"
+"681","37129","New Hanover"
+"686","41007","Clatsop"
+"691","41041","Lincoln"
+"696","41057","Tillamook"
+"701","42023","Cameron"
+"706","42045","Delaware"
+"711","42053","Forest"
+"716","42101","Philadelphia"
+"721","42103","Pike"
+"726","44001","Bristol"
+"731","44003","Kent"
+"736","47171","Unicoi"
+"741","48007","Aransas"
+"746","48103","Crane"
+"751","48135","Ector"
+"756","48183","Gregg"
+"761","48261","Kenedy"
+"766","48269","King"
+"771","48301","Loving"
+"776","48377","Presidio"
+"781","48475","Ward"
+"786","48495","Winkler"
+"791","49009","Daggett"
+"796","49019","Grand"
+"801","49047","Uintah"
+"806","51013","Arlington"
+"811","51027","Buchanan"
+"816","51051","Dickenson"
+"821","51057","Essex"
+"826","51510","Alexandria"
+"831","51520","Bristol"
+"836","51530","Buena Vista"
+"841","51540","Charlottesville"
+"846","51570","Colonial Heights"
+"851","51580","Covington"
+"856","51590","Danville"
+"861","51595","Emporia"
+"866","51600","Fairfax"
+"871","51610","Falls Church"
+"876","51620","Franklin"
+"881","51630","Fredericksburg"
+"886","51640","Galax"
+"891","51650","Hampton"
+"896","51660","Harrisonburg"
+"901","51670","Hopewell"
+"906","51678","Lexington"
+"911","51680","Lynchburg"
+"916","51683","Manassas"
+"921","51685","Manassas Park"
+"926","51690","Martinsville"
+"931","51700","Newport News"
+"936","51710","Norfolk"
+"941","51720","Norton"
+"946","51730","Petersburg"
+"951","51735","Poquoson"
+"956","51740","Portsmouth"
+"961","51750","Radford"
+"966","51760","Richmond"
+"971","51770","Roanoke"
+"976","51775","Salem"
+"981","51790","Staunton"
+"986","51820","Waynesboro"
+"991","51830","Williamsburg"
+"996","51840","Winchester"
+"1001","53009","Clallam"
+"1006","53031","Jefferson"
+"1011","53045","Mason"
+"1016","53051","Pend Oreille"
+"1021","53055","San Juan"
+"1026","53059","Skamania"
+"1031","53069","Wahkiakum"
+"1036","54005","Boone"
+"1041","54007","Braxton"
+"1046","54009","Brooke"
+"1051","54013","Calhoun"
+"1056","54015","Clay"
+"1061","54017","Doddridge"
+"1066","54019","Fayette"
+"1071","54021","Gilmer"
+"1076","54039","Kanawha"
+"1081","54041","Lewis"
+"1086","54045","Logan"
+"1091","54047","McDowell"
+"1096","54051","Marshall"
+"1101","54055","Mercer"
+"1106","54059","Mingo"
+"1111","54073","Pleasants"
+"1116","54081","Raleigh"
+"1121","54085","Ritchie"
+"1126","54089","Summers"
+"1131","54091","Taylor"
+"1136","54095","Tyler"
+"1141","54101","Webster"
+"1146","54103","Wetzel"
+"1151","54109","Wyoming"
+"1156","55037","Florence"
+"1161","55078","Menominee"
+"1166","55125","Vilas"
