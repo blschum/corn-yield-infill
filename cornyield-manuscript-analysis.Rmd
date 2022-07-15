@@ -24,38 +24,19 @@ library(pdp)
 
 ## Build training and test sets for: all data, pruned biophysical data, and pruned farm(er) data
 ```{r train and test}
-# pull in TRUE train data; all data with recorded yield
-corn_yield <- readRDS("./data/yieldRF.RDS")
+# bring in all data
+geoid_bio <- readRDS("./data/data-out/true-train.RDS") %>% 
+  select(GEOID, YEAR,YIELD,PERC_IRR,FRR,GDD,BV2,BV18,SDI_CDL_AG,BV9,BV4,TP,ELEVATION,S_PH_H2O,SLOPE,BV8,BV19,T_CEC_SOIL,BV15,T_REF_BULK_DENSITY,T_OC)
+geoid_farmer <- readRDS("./data/data-out/true-train.RDS") %>% 
+  select(GEOID, YEAR,YIELD,PERC_IRR,FRR,GDD,BV2,BV18,SDI_CDL_AG,BV9,BV4,TP,ELEVATION,S_PH_H2O,SLOPE,BV8,BV19,T_CEC_SOIL,BV15,T_REF_BULK_DENSITY,T_OC,perc_corn,chem,fert,labor_expense,machinery,insur_acres,gvt_prog,exp,occup,tenant,acres_per_op)
+# pull in all data with recorded yield
+train <- readRDS("./data/data-out/for-RF-analysis/bio_train.RDS") # bio
+test <- readRDS("./data/data-out/for-RF-analysis/bio_test.RDS") # bio
+farmer_train <- readRDS("./data/data-out/for-RF-analysis/farmer_train.RDS") # farmer + bio
+farmer_test <- readRDS("./data/data-out/for-RF-analysis/farmer_test.RDS") # farmer + bio
 
-corn_bioph <- corn_yield %>% select(GEOID,YEAR,YIELD,PERC_IRR,FRR,GDD,BV2,BV18,SDI_CDL_AG,BV9,BV4,TP,ELEVATION,S_PH_H2O,SLOPE,BV8,BV19,T_CEC_SOIL,BV15,T_REF_BULK_DENSITY,T_OC)
-
-yield_RF <- corn_yield %>% dplyr::select(-c(GEOID))
-
-# specify qualitative variables that are factors
-yield_RF$FRR <- as.factor(yield_RF$FRR)
-
-##########################################################################################################################################################################################################################################
-
-# build training and test sets used in each iteration of the RF, below
-# Create training (75%) and test (25%) sets for our corn yield data.
-# Use set.seed for reproducibility
-set.seed(1234) 
-random_rn <- sample(nrow(yield_RF), ceiling(nrow(yield_RF)*.25)) 
-train_fullset <- yield_RF[-random_rn,] 
-test_fullset <- yield_RF[random_rn,] 
-
-# subset for only biophysical variables
-train <- train_fullset %>% select(YEAR,YIELD,PERC_IRR,FRR,GDD,BV2,BV18,SDI_CDL_AG,BV9,BV4,TP,ELEVATION,S_PH_H2O,SLOPE,BV8,BV19,T_CEC_SOIL,BV15,T_REF_BULK_DENSITY,T_OC)
-
-test <- test_fullset %>% select(YEAR,YIELD,PERC_IRR,FRR,GDD,BV2,BV18,SDI_CDL_AG,BV9,BV4,TP,ELEVATION,S_PH_H2O,SLOPE,BV8,BV19,T_CEC_SOIL,BV15,T_REF_BULK_DENSITY,T_OC)
-
-# subset for biophysical AND farm(er) variables
-farmer_train <- train_fullset %>% select(YEAR,YIELD,PERC_IRR,FRR,GDD,BV2,BV18,SDI_CDL_AG,BV9,BV4,TP,ELEVATION,S_PH_H2O,SLOPE,BV8,BV19,T_CEC_SOIL,BV15,T_REF_BULK_DENSITY,T_OC,29:39)
-
-farmer_test <- test_fullset %>% select(YEAR,YIELD,PERC_IRR,FRR,GDD,BV2,BV18,SDI_CDL_AG,BV9,BV4,TP,ELEVATION,S_PH_H2O,SLOPE,BV8,BV19,T_CEC_SOIL,BV15,T_REF_BULK_DENSITY,T_OC,29:39)
-
-# bring in true test
-truetest <- readRDS("./data/true-test-infillobs.RDS")
+# bring in true test, county-years without recorded yield BUT with attributes
+truetest <- readRDS("./data/data-out/true-test-infillobs.RDS")
 
 truetest$YEAR <- as.factor(truetest$YEAR)
 truetest$FRR <- as.factor(truetest$FRR)
@@ -65,7 +46,7 @@ infill_bioph <- truetest %>%
   dplyr::select(YEAR,YIELD,PERC_IRR,FRR,GDD,BV2,BV18,SDI_CDL_AG,BV9,BV4,TP,ELEVATION,S_PH_H2O,SLOPE,BV8,BV19,T_CEC_SOIL,BV15,T_REF_BULK_DENSITY,T_OC)
 
 # subset for biophysical AND farm(er) variables
-infill_farmer <- truetest %>% select(YEAR,YIELD,PERC_IRR,FRR,GDD,BV2,BV18,SDI_CDL_AG,BV9,BV4,TP,ELEVATION,S_PH_H2O,SLOPE,BV8,BV19,T_CEC_SOIL,BV15,T_REF_BULK_DENSITY,T_OC,72, 74:83)
+infill_farmer <- truetest %>% select(YEAR,YIELD,PERC_IRR,FRR,GDD,BV2,BV18,SDI_CDL_AG,BV9,BV4,TP,ELEVATION,S_PH_H2O,SLOPE,BV8,BV19,T_CEC_SOIL,BV15,T_REF_BULK_DENSITY,T_OC,perc_corn,chem,fert,labor_expense,machinery,insur_acres,gvt_prog,exp,occup,tenant,acres_per_op)
 ```
 
 ###########################
@@ -78,9 +59,10 @@ ntree = 2000, mtry = 7, node size = 4, sample size = 0.800 ~ OOB RMSE = 17.54877
 ```{r}
 detach(package:dplyr)
 set.seed(1234)
+# @Brennan, I had been running 100 iterations of RF and averaging; hash out for loop to run single
 
-for (iter in 1:100){
-  cat(paste('iter = ', iter, ':: '))
+#for (iter in 1:100){ 
+#cat(paste('iter = ', iter, ':: '))
   
   # train the model
   rf <- ranger(formula          = YIELD ~ ., 
@@ -119,16 +101,18 @@ for (iter in 1:100){
   colnames(imp) <- c("VI", "VAR")
   ranger_imp <- imp
   
-  # partial dependence
-  #pdp <- partial(rf, c("PERC_IRR","GDD","BV2","SDI_CDL_AG","S_PH_H2O","BV18"))
-  
   # save .RDS's
-  saveRDS(test, file = paste0('./results/ranger-preds/bio_RFpreds_',iter,'.RDS'))
-  saveRDS(imp, file = paste0('./results/ranger-imp/bio_RFimp_',iter,'.RDS'))
-  #saveRDS(pdp, file = paste0('./results/ranger-pdp/bio_RFpdp_',iter,'.RDS'))
-  saveRDS(infill_bioph, file = paste0('./results/ranger-infill/bio_infill_',iter,'.RDS'))
+  saveRDS(test, file = paste0('./results/ranger-preds/bio_RFpreds.RDS'))
+  saveRDS(imp, file = paste0('./results/ranger-imp/bio_RFimp.RDS'))
+  saveRDS(infill_bioph, file = paste0('./results/ranger-infill/bio_infill.RDS'))
 
-}
+  # USE SAVE CODE BELOW IF RUNNING ITERATIONS OF RF
+  # save .RDS's
+  #saveRDS(test, file = paste0('./results/ranger-preds/bio_RFpreds_',iter,'.RDS'))
+  #saveRDS(imp, file = paste0('./results/ranger-imp/bio_RFimp_',iter,'.RDS'))
+  #saveRDS(infill_bioph, file = paste0('./results/ranger-infill/bio_infill_',iter,'.RDS'))
+
+#}
 
 # Partial dependence, taken from the first iteration of ranger, above
 pdp_irr <- pdp::partial(rf,pred.var = "PERC_IRR")
@@ -147,66 +131,68 @@ saveRDS(pdp_bv18, "./results/ranger-pdp/BV18.RDS")
 
 ## Take the average of the performance results for *n* = 100 RFs
 ```{r}
-library(tidyverse)
+# @Brennan, I had been running 100 iterations of RF and averaging; if only running one, all code below unnecessary 
+#library(tidyverse)
 # build full list of files and bring them into the R environment
-bioph <- readRDS("./results/ranger-preds/bio_RFpreds_100.RDS")
+#bioph <- readRDS("./results/ranger-preds/bio_RFpreds_100.RDS")
 
-names(bioph)[21:ncol(bioph)] <- unlist(mapply(function(x,y) paste(x, seq(1,y), sep="_"), "PREDS", 100))
+#names(bioph)[21:ncol(bioph)] <- unlist(mapply(function(x,y) paste(x, seq(1,y), sep="_"), "PREDS", 100))
 
-bioph <- bioph %>% pivot_longer(cols = c(21:120), names_to = "PRED_NUM", values_to = "PREDS") %>% select(-PRED_NUM)
+#bioph <- bioph %>% pivot_longer(cols = c(21:120), names_to = "PRED_NUM", values_to = "PREDS") %>% select(-PRED_NUM)
 
-prediction_bioph <- merge(bioph, corn_bioph, by = c("YEAR","YIELD","PERC_IRR","FRR","GDD","BV2","BV18","SDI_CDL_AG","BV9","BV4","TP","ELEVATION","S_PH_H2O","SLOPE","BV8","BV19","T_CEC_SOIL","BV15","T_REF_BULK_DENSITY","T_OC"))
+#prediction_bioph <- merge(bioph, corn_bioph, by = c("YEAR","YIELD","PERC_IRR","FRR","GDD","BV2","BV18","SDI_CDL_AG","BV9","BV4","TP","ELEVATION","S_PH_H2O","SLOPE","BV8","BV19","T_CEC_SOIL","BV15","T_REF_BULK_DENSITY","T_OC"))
 
-prediction_bioph <- prediction_bioph %>% select(GEOID, everything())
+#prediction_bioph <- prediction_bioph %>% select(GEOID, everything())
 
-prediction_bioph_summary <- prediction_bioph %>% 
+#prediction_bioph_summary <- prediction_bioph %>% 
   #mutate(FRR = as.numeric(FRR)) %>% 
-  dplyr::group_by(GEOID, YEAR, YIELD) %>% 
-  summarize(average_prediction = ave(PREDS)) %>% 
-  distinct() %>% 
-  mutate(error = YIELD - average_prediction)
+  #dplyr::group_by(GEOID, YEAR, YIELD) %>% 
+  #summarize(average_prediction = ave(PREDS)) %>% 
+  #distinct() %>% 
+  #mutate(error = YIELD - average_prediction)
 
-saveRDS(prediction_bioph_summary, "./data/data-out/ensemble_bioph_preds.RDS")
+#saveRDS(prediction_bioph_summary, "./data/data-out/ensemble_bioph_preds.RDS")
 
 # overall performance
 # performance on test set
-  b_RMSE <- caret::RMSE(prediction_bioph_summary$average_prediction, prediction_bioph_summary$YIELD)
-  b_R2 <- 1 - (sum((prediction_bioph_summary$YIELD - prediction_bioph_summary$average_prediction)^2) / sum((prediction_bioph_summary$YIELD - mean(prediction_bioph_summary$YIELD))^2))
-  b_MAE <- mae(prediction_bioph_summary$average_prediction, prediction_bioph_summary$YIELD)
-  b_MAPE <- MAPE(prediction_bioph_summary$average_prediction, prediction_bioph_summary$YIELD)
+  #b_RMSE <- caret::RMSE(prediction_bioph_summary$average_prediction, prediction_bioph_summary$YIELD)
+  #b_R2 <- 1 - (sum((prediction_bioph_summary$YIELD - prediction_bioph_summary$average_prediction)^2) / sum((prediction_bioph_summary$YIELD - mean(prediction_bioph_summary$YIELD))^2))
+  #b_MAE <- mae(prediction_bioph_summary$average_prediction, prediction_bioph_summary$YIELD)
+  #b_MAPE <- MAPE(prediction_bioph_summary$average_prediction, prediction_bioph_summary$YIELD)
   
   # build argument to feed save, below
-  bioph_list <- list("RMSE" = b_RMSE, "R2" = b_R2, "MAE" = b_MAE, "MAPE" = b_MAPE)
-  print(bioph_list)
+  #bioph_list <- list("RMSE" = b_RMSE, "R2" = b_R2, "MAE" = b_MAE, "MAPE" = b_MAPE)
+  #print(bioph_list)
 ```
 
 ## Take the average of the variable importance results for *n* = 100 RFs
 ```{r}
+# @Brennan, I had been running 100 iterations of RF and averaging; if only running one, all code below unnecessary 
 # build full list of files and bring them into the R environment
-bioph_imp <- list.files(path = "./results/ranger-imp/",
-                    pattern = "bio", full.names = T, all.files = T) %>% 
-  map_dfr(readRDS) %>% 
-  group_by(VAR) %>% 
-  summarise(ave_imp = mean(VI),
-            sd_imp = sd(VI)) %>% 
-  mutate(VAR = as.factor(VAR))
+#bioph_imp <- list.files(path = "./results/ranger-imp/",
+#                    pattern = "bio", full.names = T, all.files = T) %>% 
+#  map_dfr(readRDS) %>% 
+#  group_by(VAR) %>% 
+#  summarise(ave_imp = mean(VI),
+#            sd_imp = sd(VI)) %>% 
+#  mutate(VAR = as.factor(VAR))
 
 # variable importance plo
-bioph_imp$VAR_NAME <- c("Precipitation Seasonality", "Precipitation of the warmest quarter", "Precipitation of the coldest quarter", "Mean diurnal range", "Temperature seasonality", "Mean temperature of the wettest quarter", "Mean temperature of the driest quarter", "Elevation", "Farm Resource Region", "Growing degree days", "Percent irrigated acreage", "Subsoil pH", "Shannon's Diversity Index", "Slope", "Topsoil cation exchange capacity", "Topsoil organic carbon", "Topsoil reference bulk density", "Total precipitation", "Year")
+#bioph_imp$VAR_NAME <- c("Precipitation Seasonality", "Precipitation of the warmest quarter", "Precipitation of the coldest quarter", "Mean diurnal range", "Temperature seasonality", "Mean temperature of the wettest quarter", "Mean temperature of the driest quarter", "Elevation", "Farm Resource Region", "Growing degree days", "Percent irrigated acreage", "Subsoil pH", "Shannon's Diversity Index", "Slope", "Topsoil cation exchange capacity", "Topsoil organic carbon", "Topsoil reference bulk density", "Total precipitation", "Year")
 
-bioph_imp <- bioph_imp %>%  mutate(Prop = ave_imp/sum(ave_imp)*100)
+#bioph_imp <- bioph_imp %>%  mutate(Prop = ave_imp/sum(ave_imp)*100)
 
 #saveRDS(imp_red, file = './results/RFimp_red.RDS')
 
-bioph_imp_plot <- ggplot(bioph_imp, aes(x=reorder(VAR_NAME, ave_imp), y=ave_imp)) + 
-  geom_point() +
-  geom_segment(aes(x=VAR_NAME,xend=VAR_NAME,y=0,yend=ave_imp)) +
-  ylab("Increase in node purity") +
-  xlab("") +
-  coord_flip() +
-  theme_minimal()
+#bioph_imp_plot <- ggplot(bioph_imp, aes(x=reorder(VAR_NAME, ave_imp), y=ave_imp)) + 
+#  geom_point() +
+#  geom_segment(aes(x=VAR_NAME,xend=VAR_NAME,y=0,yend=ave_imp)) +
+#  ylab("Increase in node purity") +
+#  xlab("") +
+#  coord_flip() +
+#  theme_minimal()
 
-bioph_imp_plot
+#bioph_imp_plot
 ```
 
 
@@ -224,8 +210,8 @@ bio_full_test <- bio_full_test %>% select(!GEOID)
 
 set.seed(1234)
 
-for (iter in 1:10){
-  cat(paste('iter = ', iter, ':: '))
+#for (iter in 1:10){
+#  cat(paste('iter = ', iter, ':: '))
   # train the model
   rf <- ranger(formula          = YIELD ~ ., 
                data             = bio_full_train, 
@@ -241,16 +227,17 @@ for (iter in 1:10){
   colnames(preds) <- "PREDS"
   test <- cbind(bio_full_test, preds) 
 
-  saveRDS(test, file = paste0('./results/ranger-preds/bio_full_RFpreds_',iter,'.RDS'))
+  saveRDS(test, file = paste0('./results/ranger-preds/bio_full_RFpreds.RDS'))
+  #saveRDS(test, file = paste0('./results/ranger-preds/bio_full_RFpreds_',iter,'.RDS'))
   
-}
+#}
 
 # build full list of files and bring them into the R environment
 bio_full <- list.files(path = "./results/ranger-preds/",
                     pattern = "bio_full", full.names = T, all.files = T) %>% 
   map_dfr(readRDS) 
 
-prediction_full_bio <- merge(bio_full, corn_bioph, by = c("YEAR","YIELD","PERC_IRR","FRR","GDD","BV2","BV18","SDI_CDL_AG","BV9","BV4","TP","ELEVATION","S_PH_H2O","SLOPE","BV8","BV19","T_CEC_SOIL","BV15","T_REF_BULK_DENSITY","T_OC"))
+prediction_full_bio <- merge(bio_full, geoid_bio, by = c("YEAR","YIELD","PERC_IRR","FRR","GDD","BV2","BV18","SDI_CDL_AG","BV9","BV4","TP","ELEVATION","S_PH_H2O","SLOPE","BV8","BV19","T_CEC_SOIL","BV15","T_REF_BULK_DENSITY","T_OC"))
 
 # build prediction data.frame
 prediction_full_bio_summary <- prediction_full_bio %>% 
@@ -280,10 +267,11 @@ prediction_full_bio_summary <- prediction_full_bio %>%
 
 ntree = 2000, mtry = 19, node size = 4, sample size = 0.800, OOB RMSE = 17.53468
 ```{r}
+# @Brennan, I had been running 100 iterations of RF and averaging; hashed out for loop to run single
 set.seed(1234)
 
-for (iter in 1:1){
-  cat(paste('iter = ', iter, ':: '))
+#for (iter in 1:1){
+#  cat(paste('iter = ', iter, ':: '))
   
   # train the model
   rf <- ranger(formula          = YIELD ~ ., 
@@ -327,7 +315,7 @@ for (iter in 1:1){
   saveRDS(imp, file = paste0('./results/ranger-imp/farmer_RFimp_',iter,'.RDS'))
   saveRDS(infill_farmer, file = paste0('./results/ranger-infill/farmer_infill_',iter,'.RDS'))
 
-}
+#}
 
 # Partial dependence, taken from the first iteration of ranger, above
 pdp_fert <- pdp::partial(rf,pred.var = "fert")
@@ -344,63 +332,65 @@ saveRDS(pdp_gvt, "./results/ranger-pdp/gvt_prog.RDS")
 
 ## Take the average of the results for n = 100 RFs
 ```{r}
-library(tidyverse)
+# @Brennan, I had been running 100 iterations of RF and averaging; if only running one, all code below unnecessary 
+#library(tidyverse)
 # build full list of files and bring them into the R environment
-farm <- list.files(path = "./results/ranger-preds/",
-                    pattern = "farmer", full.names = T, all.files = T) %>% 
-  map_dfr(readRDS) 
+#farm <- list.files(path = "./results/ranger-preds/",
+#                    pattern = "farmer", full.names = T, all.files = T) %>% 
+#  map_dfr(readRDS) 
 
-prediction_farm <- merge(farm, corn_bioph, by = c("YEAR","YIELD","PERC_IRR","FRR","GDD","BV2","BV18","SDI_CDL_AG","BV9","BV4","TP","ELEVATION","S_PH_H2O","SLOPE","BV8","BV19","T_CEC_SOIL","BV15","T_REF_BULK_DENSITY","T_OC"))
+#prediction_farm <- merge(farm, corn_bioph, by = c("YEAR","YIELD","PERC_IRR","FRR","GDD","BV2","BV18","SDI_CDL_AG","BV9","BV4","TP","ELEVATION","S_PH_H2O","SLOPE","BV8","BV19","T_CEC_SOIL","BV15","T_REF_BULK_DENSITY","T_OC"))
 
-library(tidyverse)
-prediction_farm_summary <- prediction_farm %>% 
+#library(tidyverse)
+#prediction_farm_summary <- prediction_farm %>% 
   #mutate(FRR = as.numeric(FRR)) %>% 
-  group_by(GEOID, YEAR, YIELD) %>% 
-  summarize(average_prediction = ave(PREDS)) %>% 
-  distinct() %>% 
-  mutate(error = YIELD - average_prediction)
+  #group_by(GEOID, YEAR, YIELD) %>% 
+  #summarize(average_prediction = ave(PREDS)) %>% 
+  #distinct() %>% 
+  #mutate(error = YIELD - average_prediction)
 
-saveRDS(prediction_farm_summary, "./data/data-out/ensemble_farm_preds.RDS")
+#saveRDS(prediction_farm_summary, "./data/data-out/ensemble_farm_preds.RDS")
 
 # overall performance
 # performance on test set
-  f_RMSE <- caret::RMSE(prediction_farm_summary$average_prediction, prediction_farm_summary$YIELD)
-  f_R2 <- 1 - (sum((prediction_farm_summary$YIELD - prediction_farm_summary$average_prediction)^2) / sum((prediction_farm_summary$YIELD - mean(prediction_farm_summary$YIELD))^2))
-  f_MAE <- mae(prediction_farm_summary$average_prediction, prediction_farm_summary$YIELD)
-  f_MAPE <- MAPE(prediction_farm_summary$average_prediction, prediction_farm_summary$YIELD)
+  #f_RMSE <- caret::RMSE(prediction_farm_summary$average_prediction, prediction_farm_summary$YIELD)
+  #f_R2 <- 1 - (sum((prediction_farm_summary$YIELD - prediction_farm_summary$average_prediction)^2) / sum((prediction_farm_summary$YIELD - mean(prediction_farm_summary$YIELD))^2))
+  #f_MAE <- mae(prediction_farm_summary$average_prediction, prediction_farm_summary$YIELD)
+  #f_MAPE <- MAPE(prediction_farm_summary$average_prediction, prediction_farm_summary$YIELD)
   
   # build argument to feed save, below
-  farmer_list <- list("RMSE" = f_RMSE, "R2" = f_R2, "MAE" = f_MAE, "MAPE" = f_MAPE)
-  print(farmer_list)
+  #farmer_list <- list("RMSE" = f_RMSE, "R2" = f_R2, "MAE" = f_MAE, "MAPE" = f_MAPE)
+  #print(farmer_list)
 ```
 
 ## Take the average of the variable importance results for *n* = 100 RFs
 ```{r}
+# @Brennan, I had been running 100 iterations of RF and averaging; if only running one, all code below unnecessary 
 # build full list of files and bring them into the R environment
-farmer_imp <- list.files(path = "./results/ranger-imp/",
-                    pattern = "farm", full.names = T, all.files = T) %>% 
-  map_dfr(readRDS) %>% 
-  group_by(VAR) %>% 
-  summarise(ave_imp = mean(VI),
-            sd_imp = sd(VI)) %>% 
-  mutate(VAR = as.factor(VAR))
+#farmer_imp <- list.files(path = "./results/ranger-imp/",
+#                    pattern = "farm", full.names = T, all.files = T) %>% 
+#  map_dfr(readRDS) %>% 
+#  group_by(VAR) %>% 
+#  summarise(ave_imp = mean(VI),
+#            sd_imp = sd(VI)) %>% 
+#  mutate(VAR = as.factor(VAR))
 
 # variable importance plo
-farmer_imp$VAR_NAME <- c("Precipitation Seasonality", "Precipitation of the warmest quarter", "Precipitation of the coldest quarter", "Mean diurnal range", "Temperature seasonality", "Mean temperature of the wettest quarter", "Mean temperature of the driest quarter", "Elevation", "Farm Resource Region", "Growing degree days", "Percent irrigated acreage", "Subsoil pH", "Shannon's Diversity Index", "Slope", "Topsoil cation exchange capacity", "Topsoil organic carbon", "Topsoil reference bulk density", "Total precipitation", "Year")
+#farmer_imp$VAR_NAME <- c("Precipitation Seasonality", "Precipitation of the warmest quarter", "Precipitation of the coldest quarter", "Mean diurnal range", "Temperature seasonality", "Mean temperature of the wettest quarter", "Mean temperature of the driest quarter", "Elevation", "Farm Resource Region", "Growing degree days", "Percent irrigated acreage", "Subsoil pH", "Shannon's Diversity Index", "Slope", "Topsoil cation exchange capacity", "Topsoil organic carbon", "Topsoil reference bulk density", "Total precipitation", "Year")
 
-farmer_imp <- farmer_imp %>%  mutate(Prop = ave_imp/sum(ave_imp)*100)
+#farmer_imp <- farmer_imp %>%  mutate(Prop = ave_imp/sum(ave_imp)*100)
 
 #saveRDS(imp_red, file = './results/RFimp_red.RDS')
 
-farmer_imp_plot <- ggplot(bioph_imp, aes(x=reorder(VAR_NAME, ave_imp), y=ave_imp)) + 
-  geom_point() +
-  geom_segment(aes(x=VAR_NAME,xend=VAR_NAME,y=0,yend=ave_imp)) +
-  ylab("Increase in node purity") +
-  xlab("") +
-  coord_flip() +
-  theme_minimal()
+#farmer_imp_plot <- ggplot(bioph_imp, aes(x=reorder(VAR_NAME, ave_imp), y=ave_imp)) + 
+#  geom_point() +
+#  geom_segment(aes(x=VAR_NAME,xend=VAR_NAME,y=0,yend=ave_imp)) +
+#  ylab("Increase in node purity") +
+#  xlab("") +
+#  coord_flip() +
+#  theme_minimal()
 
-farmer_imp_plot
+#farmer_imp_plot
 ```
 
 ### Farm(er) RF using optimal ranger from tune-RF & all available covariates - to compare model performance on full v. subset
@@ -471,44 +461,48 @@ prediction_full_farm_summary <- prediction_full_farm %>%
 
 ## Take the average of the infill results for *n* = 100 biophysical RFs
 ```{r}
+# @Brennan, I had been running 100 iterations of RF and averaging; if only running one, all code below unnecessary 
 # build full list of files and bring them into the R environment
-bioph_infill <- readRDS("./results/ranger-infill/bio_infill_100.RDS")
+bioph_infill <- readRDS("./results/ranger-infill/bio_infill.RDS")
+#bioph_infill <- readRDS("./results/ranger-infill/bio_infill_100.RDS")
 
-names(bioph_infill)[21:ncol(bioph_infill)] <- unlist(mapply(function(x,y) paste(x, seq(1,y), sep="_"), "PREDS", 100))
+#names(bioph_infill)[21:ncol(bioph_infill)] <- unlist(mapply(function(x,y) paste(x, seq(1,y), sep="_"), "PREDS", 100))
 
-bioph_infill <- bioph_infill %>% pivot_longer(cols = c(21:120), names_to = "PRED_NUM", values_to = "PREDS") %>% select(-PRED_NUM)
+#bioph_infill <- bioph_infill %>% pivot_longer(cols = c(21:120), names_to = "PRED_NUM", values_to = "PREDS") %>% select(-PRED_NUM)
 
-infill <- readRDS("./data/true-test-infillobs.RDS")
-bioph_infill <- merge(bioph_infill, infill, by = c("YEAR","PERC_IRR","FRR","GDD","BV2","BV18","SDI_CDL_AG","BV9","BV4","TP","ELEVATION","S_PH_H2O","SLOPE","BV8","BV19","T_CEC_SOIL","BV15","T_REF_BULK_DENSITY","T_OC"))
+#infill <- readRDS("./data/true-test-infillobs.RDS")
+#bioph_infill <- merge(bioph_infill, infill, by = c("YEAR","PERC_IRR","FRR","GDD","BV2","BV18","SDI_CDL_AG","BV9","BV4","TP","ELEVATION","S_PH_H2O","SLOPE","BV8","BV19","T_CEC_SOIL","BV15","T_REF_BULK_DENSITY","T_OC"))
 
-bioph_infill_summary <- bioph_infill %>% 
-  #mutate(FRR = as.numeric(FRR)) %>% 
-  dplyr::group_by(GEOID, YEAR) %>% 
-  summarize(average_prediction = ave(PREDS)) %>% 
-  distinct() 
+#bioph_infill_summary <- bioph_infill %>% 
+#  #mutate(FRR = as.numeric(FRR)) %>% 
+#  dplyr::group_by(GEOID, YEAR) %>% 
+#  summarize(average_prediction = ave(PREDS)) %>% 
+#  distinct() 
 
-saveRDS(bioph_infill_summary, "./data/data-out/ensemble_bioph_infill.RDS")
+#saveRDS(bioph_infill_summary, "./data/data-out/ensemble_bioph_infill.RDS")
 ```
 
 ## Take the average of the infill results for *n* = 100 farm(er) RFs
 ```{r}
+# @Brennan, I had been running 100 iterations of RF and averaging; if only running one, all code below unnecessary 
 # build full list of files and bring them into the R environment
-farmer_infill <- readRDS("./results/ranger-infill/farmer_infill_100.RDS")
-farmer_infill <- farmer_infill[-c(32:33)]
+farmer_infill <- readRDS("./results/ranger-infill/farmer_infill.RDS")
+#farmer_infill <- readRDS("./results/ranger-infill/farmer_infill_100.RDS")
+#farmer_infill <- farmer_infill[-c(32:33)]
 
-names(farmer_infill)[32:ncol(farmer_infill)] <- unlist(mapply(function(x,y) paste(x, seq(1,y), sep="_"), "PREDS", 100))
+#names(farmer_infill)[32:ncol(farmer_infill)] <- unlist(mapply(function(x,y) paste(x, seq(1,y), sep="_"), "PREDS", 100))
 
-farmer_infill <- farmer_infill %>% pivot_longer(cols = c(32:131), names_to = "PRED_NUM", values_to = "PREDS") %>% select(-PRED_NUM)
+#farmer_infill <- farmer_infill %>% pivot_longer(cols = c(32:131), names_to = "PRED_NUM", values_to = "PREDS") %>% select(-PRED_NUM)
 
-farmer_infill <- merge(farmer_infill, infill, by = c("YEAR","PERC_IRR","FRR","GDD","BV2","BV18","SDI_CDL_AG","BV9","BV4","TP","ELEVATION","S_PH_H2O","SLOPE","BV8","BV19","T_CEC_SOIL","BV15","T_REF_BULK_DENSITY","T_OC"))
+#farmer_infill <- merge(farmer_infill, infill, by = c("YEAR","PERC_IRR","FRR","GDD","BV2","BV18","SDI_CDL_AG","BV9","BV4","TP","ELEVATION","S_PH_H2O","SLOPE","BV8","BV19","T_CEC_SOIL","BV15","T_REF_BULK_DENSITY","T_OC"))
 
-farmer_infill_summary <- farmer_infill %>% 
+#farmer_infill_summary <- farmer_infill %>% 
   #mutate(FRR = as.numeric(FRR)) %>% 
-  dplyr::group_by(GEOID, YEAR) %>% 
-  summarize(average_prediction = ave(PREDS)) %>% 
-  distinct() 
+#  dplyr::group_by(GEOID, YEAR) %>% 
+#  summarize(average_prediction = ave(PREDS)) %>% 
+#  distinct() 
 
-saveRDS(farmer_infill_summary, "./data/data-out/ensemble_farmer_infill.RDS")
+#saveRDS(farmer_infill_summary, "./data/data-out/ensemble_farmer_infill.RDS")
 ```
 
 ## Compare biophysical and farm(er) predictions

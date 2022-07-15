@@ -23,7 +23,7 @@ knitr::opts_chunk$set(
 ```{r}
 library(tidyverse)
 library(zoo)
-yield <- readRDS("./data-raw/yield-modeling-panel.RDS")
+yield <- readRDS("./data/data-raw/yield-modeling-panel.RDS")
 yield <- yield %>% mutate(perc_corn = CORN_SQKM/AG_SQKM*100)
 
 yr_df <- yield %>% select(GEOID, YEAR)
@@ -33,8 +33,8 @@ cty <- as.data.frame(cty)
 coterm <- yield %>% filter(GEOID %in% cty$GEOID) # check!
 
 # bring in extra coa variables of interest
-coa <- readRDS("./data-raw/BSDS_standatt_operated.RDS")
-coa2 <- readRDS("./data-raw/COA-vars.RDS")
+coa <- readRDS("./data/data-raw/BSDS_standatt_operated.RDS")
+coa2 <- readRDS("./data/data-raw/COA-vars.RDS")
 
 human <- coa2 %>% select(GEOID, county, year, chem, fert, labor_expense, machinery, insur_acres, gvt_prog, exp, occup, tenant, acres_per_op) %>% 
   filter(year == 2017 | year == 2012 | year == 2007) %>% rename(YEAR = year)
@@ -46,7 +46,7 @@ human <- merge(human, yr_df, by = c("GEOID","YEAR"), all = TRUE)
 
 ### 2008 - 2011
 ```{r}
-# interpolate 2008-2011 using the average of 2007 and 2012 data for each GEOID
+# interpolate 2008-2011 using the linear interpolation of 2007 and 2012 data for each GEOID
 # NAs produced when no data is reported in 2007 or 2012
 test <- human %>% 
   filter(YEAR == c(2007:2012)) %>% 
@@ -219,9 +219,9 @@ na_vals <- filter_all(h, any_vars(is.na(.)))
 na_count <- sapply(h, function(x) sum(is.na(x)))
 
 # SAVE INTERPOLATED DATA
-saveRDS(h, "./data/farm-er-linearinterp.RDS")
+saveRDS(h, "./data/data-out/farm-er-linearinterp.RDS")
 
-h <- readRDS("./data/farm-er-linearinterp.RDS")
+h <- readRDS("./data/data-out/farm-er-linearinterp.RDS")
 ```
 
 ## Yield data
@@ -229,14 +229,17 @@ h <- readRDS("./data/farm-er-linearinterp.RDS")
 # how many counties report yield? 
 y_present <- coterm %>% filter(GEOID %in% h$GEOID,
                                !is.na(YIELD)) # reduces to 16983 unique county-year observations
-saveRDS(y_present, "./data/true-train.RDS")
+
+bio_farm_train <- merge(y_present, h , by = c("GEOID", "YEAR"))
+
+saveRDS(bio_farm_train, "./data/data-out/true-train.RDS")
 
 # how many counties are missing yield?
 y_missing <- coterm %>% filter(GEOID %in% h$GEOID,
                                is.na(YIELD)) # 14631
 bio_farm_infill <- merge(y_missing, h, by = c("GEOID", "YEAR"))
 
-saveRDS(bio_farm_infill, "./data/true-test-infillobs.RDS")
+saveRDS(bio_farm_infill, "./data/data-out/true-test-infillobs.RDS")
 
 # for counties reporting yield, the number of years with reports (range = 1 - 11)
 y_count <- coterm %>% group_by(GEOID) %>% filter(!is.na(YIELD)) %>% summarise(sum = sum(length(YIELD)))

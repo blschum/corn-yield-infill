@@ -11,7 +11,7 @@ output:
 ---
 
 # Bring in the data, clean it up, and run the model on the training set
-```{r packages and data}
+```{r packages and data, message = FALSE}
 library(randomForest) # basic implementation
 library(ranger)       # a faster implementation of randomForest
 library(caret)        # an aggregator package for performing many machine learning models
@@ -22,7 +22,7 @@ library(MLmetrics)    # mean absolute percent error, mean-absolute error impleme
 #library(ie2misc)  
 
 # pull in TRUE train data; all data with recorded yield
-corn_yield <- readRDS("./data/yieldRF.RDS")
+corn_yield <- readRDS("./data/data-out/true-train.RDS")
 
 # remove ID variables that aren't included in the model
 yield_RF <- corn_yield %>% dplyr::select(-c(GEOID))
@@ -45,10 +45,14 @@ test_fullset <- yield_RF[random_rn,]
 # subset for only biophysical variables
 train <- train_fullset %>% select(YEAR,YIELD,PERC_IRR,FRR,GDD,BV2,BV18,SDI_CDL_AG,BV9,BV4,TP,ELEVATION,S_PH_H2O,SLOPE,BV8,BV19,T_CEC_SOIL,BV15,T_REF_BULK_DENSITY,T_OC)
 test <- test_fullset %>% select(YEAR,YIELD,PERC_IRR,FRR,GDD,BV2,BV18,SDI_CDL_AG,BV9,BV4,TP,ELEVATION,S_PH_H2O,SLOPE,BV8,BV19,T_CEC_SOIL,BV15,T_REF_BULK_DENSITY,T_OC)
+saveRDS(train, "./data/data-out/for-RF-analysis/bio_train.RDS")
+saveRDS(test, "./data/data-out/for-RF-analysis/bio_test.RDS")
 
 # subset for biophysical AND farm(er) variables
-farmer_train <- train_fullset %>% select(YEAR,YIELD,PERC_IRR,FRR,GDD,BV2,BV18,SDI_CDL_AG,BV9,BV4,TP,ELEVATION,S_PH_H2O,SLOPE,BV8,BV19,T_CEC_SOIL,BV15,T_REF_BULK_DENSITY,T_OC,29:39)
-farmer_test <- test_fullset %>% select(YEAR,YIELD,PERC_IRR,FRR,GDD,BV2,BV18,SDI_CDL_AG,BV9,BV4,TP,ELEVATION,S_PH_H2O,SLOPE,BV8,BV19,T_CEC_SOIL,BV15,T_REF_BULK_DENSITY,T_OC,29:39)
+farmer_train <- train_fullset %>% select(YEAR,YIELD,PERC_IRR,FRR,GDD,BV2,BV18,SDI_CDL_AG,BV9,BV4,TP,ELEVATION,S_PH_H2O,SLOPE,BV8,BV19,T_CEC_SOIL,BV15,T_REF_BULK_DENSITY,T_OC,perc_corn,chem,fert,labor_expense,machinery,insur_acres,gvt_prog,exp,occup,tenant,acres_per_op)
+farmer_test <- test_fullset %>% select(YEAR,YIELD,PERC_IRR,FRR,GDD,BV2,BV18,SDI_CDL_AG,BV9,BV4,TP,ELEVATION,S_PH_H2O,SLOPE,BV8,BV19,T_CEC_SOIL,BV15,T_REF_BULK_DENSITY,T_OC,perc_corn,chem,fert,labor_expense,machinery,insur_acres,gvt_prog,exp,occup,tenant,acres_per_op)
+saveRDS(farmer_train, "./data/data-out/for-RF-analysis/farmer_train.RDS")
+saveRDS(farmer_test, "./data/data-out/for-RF-analysis/farmer_test.RDS")
 ```
 
 ### RF is one the best "out-of-the-box" ML algorithm
@@ -64,150 +68,6 @@ It typically preforms remarkably well with very little tuning. There are only a 
 - `nodesize` : minimum number of samples within the terminal nodes which controls the complexity of the trees. The deeper the trees, the higher the risk of overfitting; the shallower the trees, the high the risk of introducing bias and not fully capturing unique patterns in the data.
 
 - `maxnodes` : maximum number of terminal nodes. More nodes build deeper, more complex trees.
-
-
-# Tune Biophysical RF, using the classic randomForest() implementation
-```{r tune biophysical RF randomForest() package, evaluate = FALSE}
-control <- trainControl(method="repeatedcv", 
-                        number=10, 
-                        repeats=3, 
-                        search="grid")
-set.seed(1234) 
-
-tunegrid <- expand.grid(.mtry=c(1:12))
-
-rf_gridsearch <- train(YIELD~., data=train, 
-                       method="rf", 
-                       metric='RMSE', 
-                       ntree = 2000,
-                       tuneGrid=tunegrid,
-                       trControl = control)
-print(rf_gridsearch)
-
-jpeg("./viz/rf-tune-mtry2.jpeg", height = 4, width = 6, units = "in", res = 400)
-plot(rf_gridsearch)
-dev.off()
-```
-
-Random Forest 
-
-12737 samples
-   19 predictor ~ default ntrees = 500
-
-No pre-processing
-Resampling: Cross-Validated (10 fold, repeated 3 times) 
-Summary of sample sizes: 11463, 11463, 11464, 11463, 11462, 11464, ... 
-Resampling results across tuning parameters:
-
-  mtry  RMSE      Rsquared   MAE     
-   1    30.08711  0.6442456  23.84962
-   2    21.61608  0.7622326  16.78247
-   3    19.18015  0.7934285  14.70176
-   4    18.48832  0.8016640  14.10895
-   5    18.22066  0.8042397  13.87249
-   6    18.10367  0.8048134  13.76500
-   7    18.02260  0.8051778  13.68915
-   8    17.97065  0.8051751  13.64230
-   9    17.93063  0.8052253  13.60744
-  10    17.93072  0.8044584  13.59464
-  11    17.91163  0.8043202  13.57528
-  12    17.92377  0.8034832  13.57159
-
-RMSE was used to select the optimal model using the smallest value.
-The final value used for the model was mtry = 11.
-
-Random Forest 
-
-12737 samples
-   19 predictor ~ ntrees = 2000
-
-No pre-processing
-Resampling: Cross-Validated (10 fold, repeated 3 times) 
-Summary of sample sizes: 11463, 11463, 11464, 11463, 11462, 11464, ... 
-Resampling results across tuning parameters:
-
-  mtry  RMSE      Rsquared   MAE     
-   1    30.09296  0.6454033  23.85180
-   2    21.59564  0.7636618  16.77102
-   3    19.16431  0.7942486  14.69318
-   4    18.47087  0.8022988  14.09545
-   5    18.20506  0.8048216  13.85975
-   6    18.07693  0.8055895  13.74367
-   7    18.00142  0.8058497  13.67102
-   8    17.94524  0.8059420  13.61931
-   9    17.92014  0.8055923  13.59750
-  10    17.90729  0.8051589  13.57500
-  11    17.89944  0.8046973  13.56337
-  12    17.89510  0.8042720  13.55620
-
-RMSE was used to select the optimal model using the smallest value.
-The final value used for the model was mtry = 12.
-
-# Biophysical RF variable importance with various mtry levels, using the classic randomForest() implementation
-```{r biophysical RF variable importance, evaluate = FALSE}
-# remove variables that contributed least to the full model
-rf_mtry <- function(mtry) {
-  
-  #index
-  index <- mtry
-  
-  # build RF on training data
-  set.seed(1234) 
-  rf_yield <- randomForest(YIELD ~ ., data = train, mtry = index, ntree = 2000)
-  rf_yield
-  
-  # build predictions on test set
-  preds <- predict(rf_yield, test, type = "response")
-  test$PREDICTIONS <- preds
-  
-  # build MSE/RMSE
-  RMSE <- caret::RMSE(test$PREDICTIONS, test$YIELD)
-  R2 <- 1 - (sum((test$YIELD - test$PREDICTIONS)^2)/sum((test$YIELD - mean(test$YIELD))^2))
-  
-  # build clean dataframe
-  colnames(test)[2] <- paste0('YIELD_',index)
-  colnames(test)[21] <- paste0('PREDS_',index)
-  
-  # importance plots
-  imp <- as.data.frame(importance(rf_yield))
-  imp$varnames <- rownames(imp) # row names to column
-  
-  colnames(imp)[1] <- paste0('IncPurity_',index)
-  
-  # build argument to feed save, below
-  list <- list("RMSE" = RMSE, "R2" = R2, "var_exp" = rf_yield)
-  
-  # return
-  saveRDS(imp, file = paste0('./results-imp/RFimp_',index,'.RDS'))
-  return(list)
-
-}
-
-rf_mtry_1 <- rf_mtry(1)
-rf_mtry_1
-rf_mtry_2 <- rf_mtry(2)
-rf_mtry_2
-rf_mtry_3 <- rf_mtry(3)
-rf_mtry_3
-rf_mtry_4 <- rf_mtry(4)
-rf_mtry_4
-rf_mtry_5 <- rf_mtry(5)
-rf_mtry_5
-rf_mtry_6 <- rf_mtry(6)
-rf_mtry_6
-rf_mtry_7 <- rf_mtry(7)
-rf_mtry_7
-rf_mtry_8 <- rf_mtry(8)
-rf_mtry_8
-rf_mtry_9 <- rf_mtry(9)
-rf_mtry_9
-rf_mtry_10 <- rf_mtry(10)
-rf_mtry_10
-rf_mtry_11 <- rf_mtry(11)
-rf_mtry_11
-rf_mtry_12 <- rf_mtry(12)
-rf_mtry_12
-```
 
 # Tune Biophysical RF, using ranger() implementation
 ```{r}
@@ -239,16 +99,18 @@ for(i in 1:nrow(hyper_grid)) {
   hyper_grid$OOB_RMSE[i] <- sqrt(model$prediction.error)
 }
 
-saveRDS(hyper_grid, "./data/tune-bioph-ranger.RDS")
+saveRDS(hyper_grid, "./data/data-out/tune-bioph-ranger.RDS") 
 ```
 
+*from previous run, @Brennan, use parameters that minimize the OOB_RMSE
 ntree = 2000
 mtry = 7
 node size = 4
 sample size = 0.800
 OOB RMSE = 17.54877
 
-# Biophysical RF variable importance with various mtry levels, using the classic ranger() implementation
+# Biophysical RF variable importance with various mtry levels, using the ranger() implementation
+* @Brennan, we take these results and publish them in SI Table 3
 ```{r}
 rf_mtry <- function(mtry) {
   
@@ -308,30 +170,6 @@ rf_mtry_13 <- rf_mtry(13)
 rf_mtry_15 <- rf_mtry(15)
 ```
 
-# Tune Farm(er) RF
-```{r tune farmer RF}
-control <- trainControl(method="repeatedcv", 
-                        number=10, 
-                        repeats=3, 
-                        search="grid")
-set.seed(1234)
-
-tunegrid <- expand.grid(.mtry=c(5:25))
-
-rf_farmer_gridsearch <- train(YIELD~., data=farmer_train, 
-                       method="rf", 
-                       metric='RMSE', 
-                       ntree = 2000,
-                       tuneGrid=tunegrid,
-                       trControl = control)
-print(rf_farmer_gridsearch)
-
-jpeg("./viz/rf-farmer-tune-mtry.jpeg", height = 4, width = 6, units = "in", res = 400)
-plot(rf_farmer_gridsearch)
-dev.off()
-```
-
-
 # Tune Farm(er) RF, using ranger() implementation
 ```{r}
 # hyperparameter grid search
@@ -362,9 +200,9 @@ for(i in 1:nrow(hyper_grid)) {
   hyper_grid$OOB_RMSE[i] <- sqrt(model$prediction.error)
 }
 
-saveRDS(hyper_grid, "./data/tune-farmer-ranger.RDS")
+saveRDS(hyper_grid, "./data/data-out/tune-farmer-ranger.RDS")
 ```
-
+*from previous run, @Brennan, use parameters that minimize the OOB_RMSE
 ntree = 2000
 mtry = 19
 node size = 4
@@ -372,12 +210,13 @@ sample size = 0.800
 OOB RMSE = 17.53468
 
 # Farm(er) RF variable importance with various mtry levels, using the ranger() implementation
+* @Brennan, we take these results and publish them in SI Table 4
 ```{r}
 rf_mtry <- function(mtry) {
   
   #index
   index <- mtry
-  
+   
   # build RF on training data
   set.seed(1234) 
   rf <- ranger(formula          = YIELD ~ ., 

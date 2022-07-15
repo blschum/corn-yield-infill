@@ -254,7 +254,7 @@ div.tocify {
 
 <h1 class="title toc-ignore">Linearly Interpolate Farm(er) Characteristics &amp; Build True-Test/True-Train Datasets</h1>
 <h4 class="author">Britta Schumacher</h4>
-<h4 class="date">Last updated: 19 March, 2022</h4>
+<h4 class="date">Last updated: 26 June, 2022</h4>
 
 </div>
 
@@ -263,7 +263,7 @@ div.tocify {
 <h2>Load packages &amp; data</h2>
 <pre class="r"><code>library(tidyverse)
 library(zoo)
-yield &lt;- readRDS(&quot;./data-raw/yield-modeling-panel.RDS&quot;)
+yield &lt;- readRDS(&quot;./data/data-raw/yield-modeling-panel.RDS&quot;)
 yield &lt;- yield %&gt;% mutate(perc_corn = CORN_SQKM/AG_SQKM*100)
 
 yr_df &lt;- yield %&gt;% select(GEOID, YEAR)
@@ -273,8 +273,8 @@ cty &lt;- as.data.frame(cty)
 coterm &lt;- yield %&gt;% filter(GEOID %in% cty$GEOID) # check!
 
 # bring in extra coa variables of interest
-coa &lt;- readRDS(&quot;./data-raw/BSDS_standatt_operated.RDS&quot;)
-coa2 &lt;- readRDS(&quot;./data-raw/COA-vars.RDS&quot;)
+coa &lt;- readRDS(&quot;./data/data-raw/BSDS_standatt_operated.RDS&quot;)
+coa2 &lt;- readRDS(&quot;./data/data-raw/COA-vars.RDS&quot;)
 
 human &lt;- coa2 %&gt;% select(GEOID, county, year, chem, fert, labor_expense, machinery, insur_acres, gvt_prog, exp, occup, tenant, acres_per_op) %&gt;% 
   filter(year == 2017 | year == 2012 | year == 2007) %&gt;% rename(YEAR = year)
@@ -285,7 +285,7 @@ human &lt;- merge(human, yr_df, by = c(&quot;GEOID&quot;,&quot;YEAR&quot;), all 
 <h2>Interpolate</h2>
 <div id="section" class="section level3">
 <h3>2008 - 2011</h3>
-<pre class="r"><code># interpolate 2008-2011 using the average of 2007 and 2012 data for each GEOID
+<pre class="r"><code># interpolate 2008-2011 using the linear interpolation of 2007 and 2012 data for each GEOID
 # NAs produced when no data is reported in 2007 or 2012
 test &lt;- human %&gt;% 
   filter(YEAR == c(2007:2012)) %&gt;% 
@@ -451,9 +451,9 @@ na_vals &lt;- filter_all(h, any_vars(is.na(.)))
 na_count &lt;- sapply(h, function(x) sum(is.na(x)))
 
 # SAVE INTERPOLATED DATA
-saveRDS(h, &quot;./data/farm-er-linearinterp.RDS&quot;)
+saveRDS(h, &quot;./data/data-out/farm-er-linearinterp.RDS&quot;)
 
-h &lt;- readRDS(&quot;./data/farm-er-linearinterp.RDS&quot;)</code></pre>
+h &lt;- readRDS(&quot;./data/data-out/farm-er-linearinterp.RDS&quot;)</code></pre>
 </div>
 </div>
 <div id="yield-data" class="section level2">
@@ -461,14 +461,14 @@ h &lt;- readRDS(&quot;./data/farm-er-linearinterp.RDS&quot;)</code></pre>
 <pre class="r"><code># how many counties report yield? 
 y_present &lt;- coterm %&gt;% filter(GEOID %in% h$GEOID,
                                !is.na(YIELD)) # reduces to 16983 unique county-year observations
-saveRDS(y_present, &quot;./data/true-train.RDS&quot;)
+saveRDS(y_present, &quot;./data/data-out/true-train.RDS&quot;)
 
 # how many counties are missing yield?
 y_missing &lt;- coterm %&gt;% filter(GEOID %in% h$GEOID,
                                is.na(YIELD)) # 14631
 bio_farm_infill &lt;- merge(y_missing, h, by = c(&quot;GEOID&quot;, &quot;YEAR&quot;))
 
-saveRDS(bio_farm_infill, &quot;./data/true-test-infillobs.RDS&quot;)
+saveRDS(bio_farm_infill, &quot;./data/data-out/true-test-infillobs.RDS&quot;)
 
 # for counties reporting yield, the number of years with reports (range = 1 - 11)
 y_count &lt;- coterm %&gt;% group_by(GEOID) %&gt;% filter(!is.na(YIELD)) %&gt;% summarise(sum = sum(length(YIELD)))</code></pre>
