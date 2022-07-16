@@ -310,10 +310,15 @@ set.seed(1234)
   colnames(imp) <- c("VI", "VAR")
   ranger_imp <- imp
   
+  saveRDS(test, file = paste0('./results/ranger-preds/farmer_RFpreds.RDS'))
+  saveRDS(imp, file = paste0('./results/ranger-imp/farmer_RFimp.RDS'))
+  saveRDS(infill_farmer, file = paste0('./results/ranger-infill/farmer_infill.RDS'))
+  
+  # USE SAVE CODE BELOW IF RUNNING ITERATIONS OF RF
   # save .RDS's
-  saveRDS(test, file = paste0('./results/ranger-preds/farmer_RFpreds_',iter,'.RDS'))
-  saveRDS(imp, file = paste0('./results/ranger-imp/farmer_RFimp_',iter,'.RDS'))
-  saveRDS(infill_farmer, file = paste0('./results/ranger-infill/farmer_infill_',iter,'.RDS'))
+  #saveRDS(test, file = paste0('./results/ranger-preds/farmer_RFpreds_',iter,'.RDS'))
+  #saveRDS(imp, file = paste0('./results/ranger-imp/farmer_RFimp_',iter,'.RDS'))
+  #saveRDS(infill_farmer, file = paste0('./results/ranger-infill/farmer_infill_',iter,'.RDS'))
 
 #}
 
@@ -407,8 +412,8 @@ farmer_full_test <- farmer_full_test %>% select(!GEOID)
 
 set.seed(1234)
 
-for (iter in 1:10){
-  cat(paste('iter = ', iter, ':: '))
+#for (iter in 1:10){
+#  cat(paste('iter = ', iter, ':: '))
   # train the model
   rf <- ranger(formula          = YIELD ~ ., 
                data             = farmer_full_train, 
@@ -424,16 +429,17 @@ for (iter in 1:10){
   colnames(preds) <- "PREDS"
   test <- cbind(farmer_full_test, preds) 
 
-  saveRDS(test, file = paste0('./results/ranger-preds/farmer_full_RFpreds_',iter,'.RDS'))
+  saveRDS(test, file = paste0('./results/ranger-preds/farmer_full_RFpreds.RDS'))
+  #saveRDS(test, file = paste0('./results/ranger-preds/farmer_full_RFpreds_',iter,'.RDS'))
   
-}
+#}
 
 # build full list of files and bring them into the R environment
 farm_full <- list.files(path = "./results/ranger-preds/",
                     pattern = "farmer_full", full.names = T, all.files = T) %>% 
   map_dfr(readRDS) 
 
-prediction_full_farm <- merge(farm_full, corn_bioph, by = c("YEAR","YIELD","PERC_IRR","FRR","GDD","BV2","BV18","SDI_CDL_AG","BV9","BV4","TP","ELEVATION","S_PH_H2O","SLOPE","BV8","BV19","T_CEC_SOIL","BV15","T_REF_BULK_DENSITY","T_OC"))
+prediction_full_farm <- merge(farm_full, geoid_farmer, by = c("YEAR","YIELD","PERC_IRR","FRR","GDD","BV2","BV18","SDI_CDL_AG","BV9","BV4","TP","ELEVATION","S_PH_H2O","SLOPE","BV8","BV19","T_CEC_SOIL","BV15","T_REF_BULK_DENSITY","T_OC"))
 
 # build prediction data.frame
 prediction_full_farm_summary <- prediction_full_farm %>% 
@@ -470,8 +476,14 @@ bioph_infill <- readRDS("./results/ranger-infill/bio_infill.RDS")
 
 #bioph_infill <- bioph_infill %>% pivot_longer(cols = c(21:120), names_to = "PRED_NUM", values_to = "PREDS") %>% select(-PRED_NUM)
 
-#infill <- readRDS("./data/true-test-infillobs.RDS")
-#bioph_infill <- merge(bioph_infill, infill, by = c("YEAR","PERC_IRR","FRR","GDD","BV2","BV18","SDI_CDL_AG","BV9","BV4","TP","ELEVATION","S_PH_H2O","SLOPE","BV8","BV19","T_CEC_SOIL","BV15","T_REF_BULK_DENSITY","T_OC"))
+infill <- readRDS("./data/true-test-infillobs.RDS")
+bioph_infill <- merge(bioph_infill, infill, by = c("YEAR","PERC_IRR","FRR","GDD","BV2","BV18","SDI_CDL_AG","BV9","BV4","TP","ELEVATION","S_PH_H2O","SLOPE","BV8","BV19","T_CEC_SOIL","BV15","T_REF_BULK_DENSITY","T_OC"))
+
+  
+bioph_infill <- bioph_infill %>% 
+  select("GEOID", "YEAR", "INFILL")
+
+colnames(farmer_infill) <- c("GEOID", "YEAR", "BIOPH")
 
 #bioph_infill_summary <- bioph_infill %>% 
 #  #mutate(FRR = as.numeric(FRR)) %>% 
@@ -494,7 +506,12 @@ farmer_infill <- readRDS("./results/ranger-infill/farmer_infill.RDS")
 
 #farmer_infill <- farmer_infill %>% pivot_longer(cols = c(32:131), names_to = "PRED_NUM", values_to = "PREDS") %>% select(-PRED_NUM)
 
-#farmer_infill <- merge(farmer_infill, infill, by = c("YEAR","PERC_IRR","FRR","GDD","BV2","BV18","SDI_CDL_AG","BV9","BV4","TP","ELEVATION","S_PH_H2O","SLOPE","BV8","BV19","T_CEC_SOIL","BV15","T_REF_BULK_DENSITY","T_OC"))
+farmer_infill <- merge(farmer_infill, infill, by = c("YEAR","PERC_IRR","FRR","GDD","BV2","BV18","SDI_CDL_AG","BV9","BV4","TP","ELEVATION","S_PH_H2O","SLOPE","BV8","BV19","T_CEC_SOIL","BV15","T_REF_BULK_DENSITY","T_OC","chem", "fert","labor_expense","machinery","perc_corn","gvt_prog","insur_acres","exp","occup","tenant","acres_per_op")) 
+  
+farmer_infill <- farmer_infill %>% 
+  select("GEOID", "YEAR", "INFILL")
+
+colnames(farmer_infill) <- c("GEOID", "YEAR", "FARMER")
 
 #farmer_infill_summary <- farmer_infill %>% 
   #mutate(FRR = as.numeric(FRR)) %>% 
@@ -507,9 +524,7 @@ farmer_infill <- readRDS("./results/ranger-infill/farmer_infill.RDS")
 
 ## Compare biophysical and farm(er) predictions
 ```{r}
-infill_diff <- merge(bioph_infill_summary, farmer_infill_summary, by = c("GEOID", "YEAR"))
-
-colnames(infill_diff) <- c("GEOID", "YEAR", "BIOPH", "FARMER")
+infill_diff <- merge(bioph_infill, farmer_infill, by = c("GEOID", "YEAR"))
 
 infill_diff <- infill_diff %>% 
   mutate(DIFF = BIOPH-FARMER)
