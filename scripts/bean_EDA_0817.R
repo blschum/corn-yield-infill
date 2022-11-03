@@ -27,12 +27,12 @@ random_rn <- sample(nrow(yield_RF), ceiling(nrow(yield_RF)*.25))
 train_fullset <- yield_RF[-random_rn,] 
 test_fullset <- yield_RF[random_rn,] 
 
-train <- train_fullset %>% select(YEAR,YIELD,PERC_IRR,FRR,GDD,BV2,BV18,
+train <- train_fullset %>% select(YEAR,YIELD,PERC_IRR,GDD,BV2,BV18,
                                   SDI_CDL_AG,BV9,BV4,TP,ELEVATION,S_PH_H2O,
                                   SLOPE,BV8,BV19,T_CEC_SOIL,BV15,
                                   T_REF_BULK_DENSITY,T_OC, lon, lat)
 
-test <- test_fullset %>% select(YEAR,YIELD,PERC_IRR,FRR,GDD,BV2,BV18,
+test <- test_fullset %>% select(YEAR,YIELD,PERC_IRR,GDD,BV2,BV18,
                                 SDI_CDL_AG,BV9,BV4,TP,ELEVATION,S_PH_H2O,SLOPE,
                                 BV8,BV19,T_CEC_SOIL,BV15,T_REF_BULK_DENSITY,
                                 T_OC, lon, lat)
