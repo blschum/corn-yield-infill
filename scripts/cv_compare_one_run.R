@@ -14,7 +14,9 @@ county_join <- county_centroid %>%
 corn_yield <- dplyr::left_join(corn_yield, county_join, by = "GEOID") 
 
 # Get cross validation results for one run. 
+set.seed(10255)
 preds <- rf_cv(formula_list[[14]], corn_yield, 5)
+preds_sum <- get_cv_rmse(formula_list[[14]], corn_yield, 5)
 
 corn_yield$preds <- preds
 
