@@ -1,15 +1,18 @@
-load("results/cv_results_11032022.Rdata")
+load("results/cv_results_11032022_2.Rdata")
 source("scripts/formula_prep.R")
+library(tidyverse)
 
 # Preliminary plots
+# My function forgot to take the square root of the MSE so I do it in 
+# the plot. 
 p1 <- tdf |> filter(formula != 1) |>
   ggplot(aes(x = factor(formula, levels = c(5, 2, 3, 4, 6:15)), 
-             y = rmse)) + 
-  geom_hline(yintercept = mean(tdf$rmse[tdf$formula == 1]), 
+             y = sqrt(rmse))) + 
+  geom_hline(yintercept = sqrt(median(tdf$rmse[tdf$formula == 1])), 
              lwd = 1, lty = 2) + 
   geom_boxplot() + 
   scale_x_discrete(labels = formula_labels[c(5, 2, 3, 4, 6:15)]) + 
-  scale_y_continuous(limits = c(350, 600), breaks = seq(350, 600, 75)) + 
+  scale_y_continuous(limits = c(16.5, 20.7), breaks = seq(16.5, 20.5, 1)) + 
   coord_flip() +
   xlab("") + 
   ylab("RMSE") + 
@@ -19,11 +22,11 @@ p1 <- tdf |> filter(formula != 1) |>
 p2 <- tdf |> filter(formula != 1) |>
   ggplot(aes(x = factor(formula, levels = c(5, 2, 3, 4, 6:15)), 
              y = mae)) + 
-  geom_hline(yintercept = mean(tdf$mae[tdf$formula == 1]), 
+  geom_hline(yintercept = median(tdf$mae[tdf$formula == 1]), 
              lwd = 1, lty = 2) + 
   geom_boxplot() + 
   scale_x_discrete(labels = formula_labels[c(5, 2, 3, 4, 6:15)]) + 
-  scale_y_continuous(limits = c(11.5, 14.5), breaks = seq(11.5, 14.5, 1)) + 
+  scale_y_continuous(limits = c(9.5, 12.5), breaks = seq(9.5, 12.5, 1)) + 
   coord_flip() +
   xlab("") + 
   ylab("MAE") + 
@@ -35,11 +38,11 @@ p2 <- tdf |> filter(formula != 1) |>
 p3 <- tdf |> filter(formula != 1) |>
   ggplot(aes(x = factor(formula, levels = c(5, 2, 3, 4, 6:15)), 
              y = smape*100)) + 
-  geom_hline(yintercept = mean(tdf$smape[tdf$formula == 1]*100), 
+  geom_hline(yintercept = median(tdf$smape[tdf$formula == 1]*100), 
              lwd = 1, lty = 2) + 
   geom_boxplot() + 
   scale_x_discrete(labels = formula_labels[c(5, 2, 3, 4, 6:15)]) + 
-  scale_y_continuous(limits = c(6, 7.5), breaks = seq(6, 7.5, .5)) + 
+  scale_y_continuous(limits = c(5, 6.5), breaks = seq(5, 6.5, .5)) + 
   coord_flip() +
   xlab("") + 
   ylab("SMAPE") + 

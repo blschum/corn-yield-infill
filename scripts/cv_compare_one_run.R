@@ -1,4 +1,4 @@
-library(tidymodels)
+library(tidyverse)
 corn_yield <- readRDS("./data/data-out/true-train.RDS")
 source("scripts/formula_prep.R")
 source("scripts/cv_functions.R")
@@ -26,6 +26,8 @@ tsum <- corn_yield |>
             lon = first(lon),
             lat = first(lat))
 
+jpeg(filename = "results/cv_one_run.jpg", width = 7, height = 5, 
+     units = "in", res = 600)
 ggplot(tsum, aes(x = factor(11 - n), y = smape)) + 
   geom_boxplot() + 
   xlab("Number of Years Missing") + 
@@ -33,3 +35,4 @@ ggplot(tsum, aes(x = factor(11 - n), y = smape)) +
   scale_y_continuous(limits = c(0, 0.6), breaks = seq(0, 0.6, .1)) +
   theme_bw() + 
   theme(text = element_text(size = 16))
+dev.off()

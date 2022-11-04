@@ -1,13 +1,13 @@
 rf_cv <- function(formula, data, k, ...){
-  groups <- sample(rep(1:5, length.out = nrow(data)))
+  groups <- sample(rep(1:k, length.out = nrow(data)))
   preds <- vector("numeric", nrow(data)) - 1
   
   for(i in 1:k){
-    train <- data[groups == i, ]
-    test <- data[groups != i, ]
+    train <- data[groups != i, ]
+    test <- data[groups == i, ]
     
     tfit <- ranger::ranger(formula, train, ...)
-    preds[groups != i] <- predict(tfit, test)$predictions
+    preds[groups == i] <- predict(tfit, test)$predictions
   }
   
   preds

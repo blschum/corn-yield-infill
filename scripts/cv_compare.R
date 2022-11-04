@@ -1,4 +1,4 @@
-library(tidymodels)
+library(tidyverse)
 corn_yield <- readRDS("./data/data-out/true-train.RDS")
 source("scripts/formula_prep.R")
 source("scripts/cv_functions.R")
@@ -33,5 +33,5 @@ for(i in 1:length(formula_list)){
 }
 tdf[, 1] <- rep(1:length(formula_list), each = reps)
 
-save(tdf, file = "results/cv_results_11032022.Rdata")
+save(tdf, file = "results/cv_results_11032022_2.Rdata")
 
