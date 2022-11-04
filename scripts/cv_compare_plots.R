@@ -11,7 +11,7 @@ p1 <- tdf |> filter(formula != 1) |>
   geom_hline(yintercept = sqrt(median(tdf$rmse[tdf$formula == 1])), 
              lwd = 1, lty = 2) + 
   geom_boxplot() + 
-  #scale_x_discrete(labels = formula_labels[c(5, 2, 3, 4, 6:15)]) + 
+  scale_x_discrete(labels = formula_labels[c(5, 2, 3, 4, 6:15)]) + 
   scale_y_continuous(limits = c(16.4, 20.6), breaks = seq(16.5, 20.5, 1)) + 
   coord_flip() +
   xlab("") + 
@@ -54,5 +54,5 @@ p3 <- tdf |> filter(formula != 1) |>
 #pdf(file = "results/test_importance.pdf", width = 10, height = 6)
 jpeg(file = "results/test_importance_new.jpg", width = 10, height = 6,
      units = "in", res = 600)
-gridExtra::grid.arrange(p1, p2, p3, widths = c(7, 4, 4), nrow = 1)
+gridExtra::grid.arrange(p1, p2, p3, widths = c(15, 8, 8), nrow = 1)
 dev.off()
