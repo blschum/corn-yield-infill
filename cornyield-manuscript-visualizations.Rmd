@@ -39,21 +39,15 @@ library(wesanderson)
 library(ggpubr)
 
 # Bring in data
-bioph_preds <- readRDS('./data/data-out/ensemble_bioph_preds.RDS')
-farmer_preds <- readRDS('./data/data-out/ensemble_farm_preds.RDS')
+biophcv_preds <- readRDS('./results/biofull_cvpreds_ave.RDS')
+farmercv_preds <- readRDS('./results/farmerfull_cvpreds_ave.RDS')
+reducedcv_preds <- readRDS("./results/sp_cl_cvpreds_ave.RDS")
+infill <- readRDS("./results/ranger-results/infill.RDS")
 ctys <- readRDS("./data/county.RDS")
 state <- readRDS("./data/states.RDS")
+frr <- readRDS("./data/FRR.RDS")
 corn_yield <- readRDS("./data/yieldRF.RDS")
-
-# build frr spatial
-frr <- read.csv("./data/FRR_data.csv") 
-frr <- frr[,1:2]
-colnames(frr)<- c("GEOID", "FRR")
-frr$GEOID <- str_pad(frr$GEOID, width = 5, side = "left", pad= "0") 
-
-#Make spatial:
-frr_shp <- merge(ctys, frr, by = "GEOID")
-spplot(frr_shp, "FRR")
+panel <- readRDS("./data/data-out/panel.RDS")
 
 getmode <- function(v) {
   uniqv <- unique(v)
@@ -62,15 +56,14 @@ getmode <- function(v) {
 
 #Aggregate counties to the regional boundaries:
 library(maptools)
-frr_agg <- unionSpatialPolygons(SpP = frr_shp, IDs = frr_shp$FRR)
-frr_final <- aggregate(frr_shp["FRR"], frr_agg, FUN = getmode)
+frr_agg <- unionSpatialPolygons(SpP = frr, IDs = frr$FRR)
+frr_final <- aggregate(frr["FRR"], frr_agg, FUN = getmode)
 
-# Visualize difference between reported yield (YIELD) and predicted yield (PREDICTIONS) across space-time
-bioph_sp <- merge(ctys, bioph_preds, by = "GEOID", duplicateGeoms = TRUE)
-farmer_sp <- merge(ctys, farmer_preds, by = "GEOID", duplicateGeoms = TRUE)
+# Make infill spatial
+infill_sp <- merge(ctys, infill, by = "GEOID", duplicateGeoms = TRUE)
 ```
 
-## Figure 1.
+## Figure 1. Farm Resource Region (FRR) boundaries and average corn yield (bushels per acre) recorded in USDA-NASS Surveys between 2008 and 2018; µpanel = 142.2 bushels/acre (9.56 tons/hectare), sdpanel = 39.4 bushels/ acre (2.65 tons/hectare). FRRs as follows: 1) Heartland; 2) Northern Crescent; 3) Northern Great Plains; 4) Prairie Gateway; 5) Eastern Uplands; 6) Southern Seaboard; 7) Fruitful Rim; 8) Basin & Range; and 9) Mississippi Portal. Note: The “missing” category refers to all counties where NASS reported no corn yields from 2008-2018; these counties may be “missing” because they produced no corn, or, more likely, because there were not enough reporting growers to meet NASS statistical disclosure requirements.
 ```{r}
 # Build yield
 y <- corn_yield %>% dplyr::select(GEOID,YEAR,YIELD) %>% group_by(GEOID) %>% summarise(ave = mean(YIELD))
@@ -91,330 +84,244 @@ map
 tmap_save(map, file = './viz/Figure1.png', dpi = 400)
 ```
 
-
-# Biophysical RF Ensemble Results
-
-## Figure 2. Biophysical RF ensemble model performance on test data. A) Average error in model predictions in bushels/acre observed across ensemble models (*n* = 100) and years (2008-2018). Counties in which predicted yields were less (greater) than observed yields appear in shades of red (blue). B) Observed v. predicted plot for the full panel dataset (Pearson’s r = 0.90). The dashed line indicates a 1:1 relationship and the solid blue line shows a linear regression between the observed and predicted yields.
+## Figure 2. Permutation variable importance for the A) biophysical and B) farmer RF resubstitution models of corn yield. The covariates appear on the y-axis and their contribution to decreased variance on the x-axis. Variables are listed in order of importance, with the most important variable being year and least important being mean temperature of the wettest quarter in panel A, and years of experience in panel B; see SI Table 1 for variable names, units, and descriptions.
 ```{r}
-cor(bioph_preds$YIELD, bioph_preds$average_prediction, method = "pearson")
+farmer.imp <- readRDS("./results/ranger-imp/farmer_resub_RFimp.RDS")
 
-p <- ggplot(bioph_preds, aes(x=YIELD, y=average_prediction)) +
-  geom_point(size = 0.5) + 
-  geom_smooth(method=lm, se=FALSE, fullrange=TRUE)+
-  geom_abline(intercept = 0, slope = 1, color="black", 
-                 linetype="dashed", size=0.65) +
-  theme_classic() +
-  xlab("Observed (bushels/acre)") +
-  ylab("Ensemble Predicted (bushels/acre)") +
-  xlim(1,250) +
-  ylim(0,250) +
-  annotate("text", x = 175.0, y = 40.0, label = "RMSE = 17.22 bushels/acre\nVariance Explained = 80.7%\nr = 0.90", hjust=0)
-p
+farmer.imp$varfull <- c("Year","Irrigation","Farm Resource Regions","Growing degree days","Mean diurnal range","Precipitation of the warmest quarter","Shannon's Diversity Index","Mean temperature of the driest quarter","Temperature seasonality","Total precipitation","Elevation","Subsoil pH","Slope","Mean temperature of the wettest quarter","Precipitation of the coldest quarter","Topsoil cation exchange capacity ~ soil","Precipitation seasonality","Topsoil reference bulk density","Topsoil organic carbon","Corn acreage","Chemicals","Fertilizer","Labor", "Machinery", "Insurance","Government receipts","Years experience", "% farming as primary occupation",  "% tenants","Median farm size", "Longitude", "Latitude")
 
-# % between -10 and 10
-perc <- bioph_preds %>% dplyr::filter(error > -10 & error < 10) #2079/4246 = 49.0%
-
-map <- tm_shape(bioph_sp) +
-  tm_polygons(col = "error", breaks = c(-100,-30,-20,-10,-5,0,5,10,20,30,100), palette = c("#67001F","#B2182B", "#D6604D", "#F4A582", "#FDDBC7", "#D1E5F0" ,"#92C5DE","#4393C3", "#2166AC", "#053061"), border.col = "transparent", title = "Average Error\n(bushels/acre)", legend.hist = TRUE, title = title) +
-  tm_legend(outside = TRUE, hist.width = 1.5) +
-  tm_layout(frame = FALSE,
-            legend.hist.size = 0.5) +
-      tm_shape(frr_final) +
-  tm_borders(col = "black")
-
-tmap_save(tm = map, file = './viz/bioph-rf-performance.png', dpi = 400)
-
-img <- readPNG("./viz/bioph-rf-performance.png")
-photo_panel <- ggdraw() + draw_image(img, scale = 1.05)
-
-plot_grid(photo_panel, p, nrow = 2, labels = c("A.", "B."))
-ggsave("./viz/Figure2.png", dpi = 400, width = 170, height  = 240, units = "mm", bg = "white")
-
-```
-
-## Figure 3. Biophysical ensemble permutation variable importance. The 19 covariates appear on the y-axis and their contribution to node purity on the x-axis. Variables are listed in order of importance, with the most important variable being year and least important being topsoil reference bulk density; see Table 1 for variable names, units, and descriptions.
-```{r}
-bio.imp <- list.files(path="results/ranger-imp", 
-                         pattern="bio_RF", full.names=T, all.files=T) %>% 
-  map_dfr(readRDS) 
-
-bio.imp.group <- bio.imp %>% 
-  group_by(VAR) %>% 
-  summarise(mean = mean(VI),
-            median = median(VI))
-
-bio.imp.group$varfull <- c("Precipitation seasonality","Precipitation of the warmest quarter","Precipitation of the coldest quarter","Mean diurnal range","Temperature seasonality","Mean temperature of the wettest quarter","Mean temperature of the driest quarter","Elevation","Farm Resource Regions","Growing degree days","Irrigation","Subsoil pH","Shannon's Diversity Index","Slope","Topsoil cation exchange capacity ~ soil","Topsoil organic carbon","Topsoil reference bulk density","Total precipitation","Year")
-
-bio_imp_plot <- ggplot(bio.imp.group, aes(x=reorder(varfull, mean), y=mean)) + 
+farmer_imp_plot <- ggplot(farmer.imp, aes(x=reorder(varfull, VI), y=VI)) + 
   geom_point() +
-  geom_segment(aes(x=varfull,xend=varfull,y=0,yend=mean)) +
-  ylab("Increase in node purity") +
+  geom_segment(aes(x=varfull,xend=varfull,y=0,yend=VI)) +
+  ylab("Decrease in variance") +
   xlab("") +
   coord_flip() +
   theme_minimal()
 
-ggsave(bio_imp_plot, file = './viz/bio_imp_plot.png', dpi = 300, width = 7, height = 7)
-```
 
+bio.imp <- readRDS("./results/ranger-imp/bio_resub_RFimp.RDS")
 
-# Farm(er) RF Ensemble Results
+bio.imp$varfull <- c("Year","Irrigation","Farm Resource Regions","Growing degree days","Mean diurnal range","Precipitation of the warmest quarter","Shannon's Diversity Index","Mean temperature of the driest quarter","Temperature seasonality","Total precipitation","Elevation","Subsoil pH","Slope","Mean temperature of the wettest quarter","Precipitation of the coldest quarter","Topsoil cation exchange capacity ~ soil","Precipitation seasonality","Topsoil reference bulk density","Topsoil organic carbon", "Longitude", "Latitude")
 
-## Figure 4. Farm(er) RF ensemble model performance on test data. A) Average error in model predictions in bushels/acre observed across ensemble models (*n* = 100) and years (2008-2018). Counties in which predicted yields were less (greater) than observed yields appear in shades of red (blue). B) Observed v. predicted plot for the full panel dataset (Pearson’s r = 0.90). The dashed line indicates a 1:1 relationship and the solid blue line shows a linear regression between the observed and predicted yields.
-```{r}
-cor(farmer_preds$YIELD, farmer_preds$average_prediction, method = "pearson")
-
-p <- ggplot(farmer_preds, aes(x=YIELD, y=average_prediction)) +
-  geom_point(size = 0.5) + 
-  geom_smooth(method=lm, se=FALSE, fullrange=TRUE)+
-  geom_abline(intercept = 0, slope = 1, color="black", 
-                 linetype="dashed", size=0.65) +
-  theme_classic() +
-  xlab("Observed (bushels/acre)") +
-  ylab("Ensemble Predicted (bushels/acre)") +
-  xlim(1,250) +
-  ylim(0,250) +
-  annotate("text", x = 175.0, y = 40.0, label = "RMSE = 17.29 bushels/acre\nVariance Explained = 80.5%\nr = 0.90", hjust=0)
-p
-
-# % between -10 and 10
-perc <- farmer_preds %>% dplyr::filter(error > -10 & error < 10) #2146/4246 = 50.5%
-
-map <- tm_shape(farmer_sp) +
-  tm_polygons(col = "error", breaks = c(-100,-30,-20,-10,-5,0,5,10,20,30,100), palette = c("#67001F","#B2182B", "#D6604D", "#F4A582", "#FDDBC7", "#D1E5F0" ,"#92C5DE","#4393C3", "#2166AC", "#053061"), border.col = "transparent", title = "Average Error\n(bushels/acre)", legend.hist = TRUE, title = title) +
-  tm_legend(outside = TRUE, hist.width = 1.5) +
-  tm_layout(frame = FALSE,
-            legend.hist.size = 0.5) +
-      tm_shape(frr_final) +
-  tm_borders(col = "black")
-
-tmap_save(tm = map, file = './viz/farmer-rf-performance.png', dpi = 400)
-
-img <- readPNG("./viz/farmer-rf-performance.png")
-photo_panel <- ggdraw() + draw_image(img, scale = 1.05)
-
-plot_grid(photo_panel, p, nrow = 2, labels = c("A.", "B."))
-ggsave("./viz/Figure4.png", dpi = 400, width = 170, height  = 240, units = "mm", bg = "white")
-
-```
-
-## Figure 5. Farm(er) ensemble permutation variable importance. The 30 covariates appear on the y-axis and their contribution to node purity on the x-axis. Variables are listed in order of importance, with the most important variable being percent agricultural acres irrigated and least important being grower years of experience on-farm; see Table 1 for variable names, units, and descriptions.
-```{r}
-farmer.imp <- list.files(path="results/ranger-imp", 
-                         pattern="farmer_RF", full.names=T, all.files=T) %>% 
-  map_dfr(readRDS) 
-
-farmer.imp.group <- farmer.imp %>% 
-  group_by(VAR) %>% 
-  summarise(mean = mean(VI),
-            median = median(VI))
-
-farmer.imp.group$varfull <- c("Median farm size", "Precipitation seasonality","Precipitation of the warmest quarter","Precipitation of the coldest quarter","Mean diurnal range","Temperature seasonality","Mean temperature of the wettest quarter","Mean temperature of the driest quarter","Chemicals", "Elevation","Years experience", "Fertilizer", "Farm Resource Regions","Growing degree days", "Government receipts", "Insurance", "Labor", "Machinery", "% farming as primary occupation", "Corn acreage", "Irrigation","Subsoil pH","Shannon's Diversity Index","Slope","Topsoil cation exchange capacity ~ soil","Topsoil organic carbon","Topsoil reference bulk density","% tenants", "Total precipitation","Year")
-
-farmer_imp_plot <- ggplot(farmer.imp.group, aes(x=reorder(varfull, mean), y=mean)) + 
+bio_imp_plot <- ggplot(bio.imp, aes(x=reorder(varfull, VI), y=VI)) + 
   geom_point() +
-  geom_segment(aes(x=varfull,xend=varfull,y=0,yend=mean)) +
-  ylab("Increase in node purity") +
+  geom_segment(aes(x=varfull,xend=varfull,y=0,yend=VI)) +
+  ylab("Decrease variance") +
   xlab("") +
   coord_flip() +
   theme_minimal()
 
-ggsave(farmer_imp_plot, file = './viz/farmer_imp_plot.png', dpi = 300, width = 7, height = 7)
+plot_grid(bio_imp_plot, farmer_imp_plot, ncol = 2, labels = c("A.", "B."))
+ggsave("./viz/Figure2.png", dpi = 400, width = 240, height  = 120, units = "mm", bg = "white")
+```
+## Figure 3. Comparison of change in the 5-fold cross validation accuracy when variable groups are removed from the model. The dashed line represents the median accuracy metric for the model including all variables. The boxplots represent the range of errors observed in 50 replications of cross validation. Error metrics include the root mean square error (RMSE), the median absolute error (MAE), and the symmetric mean absolute percentage error (SMAPE). 
+```{r}
+load("results/cv_results_11032022_3.Rdata")
+source("scripts/formula_prep.R")
+
+p1 <- tdf |> filter(formula != 1) |>
+  ggplot(aes(x = factor(formula, levels = c(5, 2, 3, 4, 6:15)), 
+             y = sqrt(rmse))) + 
+  geom_hline(yintercept = sqrt(median(tdf$rmse[tdf$formula == 1])), 
+             lwd = 1, lty = 2) + 
+  geom_boxplot() + 
+  scale_x_discrete(labels = formula_labels[c(5, 2, 3, 4, 6:15)]) + 
+  scale_y_continuous(limits = c(16.4, 20.6), breaks = seq(16.5, 20.5, 1)) + 
+  coord_flip() +
+  xlab("") + 
+  ylab("RMSE") + 
+  theme_bw() + 
+  theme(text = element_text(size = 16))
+
+p2 <- tdf |> filter(formula != 1) |>
+  ggplot(aes(x = factor(formula, levels = c(5, 2, 3, 4, 6:15)), 
+             y = mae)) + 
+  geom_hline(yintercept = median(tdf$mae[tdf$formula == 1]), 
+             lwd = 1, lty = 2) + 
+  geom_boxplot() + 
+  scale_x_discrete(labels = formula_labels[c(5, 2, 3, 4, 6:15)]) + 
+  scale_y_continuous(limits = c(9.5, 12.5), breaks = seq(9.5, 12.5, 1)) + 
+  coord_flip() +
+  xlab("") + 
+  ylab("MAE") + 
+  theme_bw() + 
+  theme(text = element_text(size = 16),
+        axis.text.y = element_blank(), 
+        axis.ticks.y = element_blank())
+
+p3 <- tdf |> filter(formula != 1) |>
+  ggplot(aes(x = factor(formula, levels = c(5, 2, 3, 4, 6:15)), 
+             y = smape*100)) + 
+  geom_hline(yintercept = median(tdf$smape[tdf$formula == 1]*100), 
+             lwd = 1, lty = 2) + 
+  geom_boxplot() + 
+  scale_x_discrete(labels = formula_labels[c(5, 2, 3, 4, 6:15)]) + 
+  scale_y_continuous(limits = c(5, 6.5), breaks = seq(5, 6.5, .5)) + 
+  coord_flip() +
+  xlab("") + 
+  ylab("SMAPE") + 
+  theme_bw() + 
+  theme(text = element_text(size = 16),
+        axis.text.y = element_blank(), 
+        axis.ticks.y = element_blank())
+
+#pdf(file = "results/test_importance.pdf", width = 10, height = 6)
+jpeg(file = "viz/Figure3.png", width = 10, height = 6,
+     units = "in", res = 600)
+gridExtra::grid.arrange(p1, p2, p3, widths = c(15, 8, 8), nrow = 1)
+dev.off()
+
 ```
 
-## Figure 6. US corn yield in ensemble predicted infilled dataset.
+## Figure 4: Permutation variable importance for the reduced resubstitution models of corn yield. The covariates appear on the y-axis and their contribution to decreased variance on the x-axis. Variables are listed in order of importance, with the most important variable being longitude and least important being mean temperature of the wettest quarter; see SI Table 1 for variable names, units, and descriptions
+```{r}
+reduced.imp <- readRDS("./results/ranger-imp/reduced_resub_RFimp.RDS")
+
+reduced.imp$varfull <- c("Year","Longitude", "Latitude","Irrigation","Growing degree days","Mean diurnal range","Temperature seasonality","Mean temperature of the wettest quarter","Mean temperature of the driest quarter","Precipitation seasonality","Precipitation of the warmest quarter","Precipitation of the coldest quarter","Total precipitation")
+
+reduced_imp_plot <- ggplot(reduced.imp, aes(x=reorder(varfull, VI), y=VI)) + 
+  geom_point() +
+  geom_segment(aes(x=varfull,xend=varfull,y=0,yend=VI)) +
+  ylab("Decrease in variance") +
+  xlab("") +
+  coord_flip() +
+  theme_minimal()
+
+ggsave("./viz/Figure4.png", dpi = 400, width = 240, height  = 120, units = "mm", bg = "white")
+
+```
+
+## Figure 5. US corn yield in ensemble predicted infilled dataset.
 ```{r}
 ### counties with all 11 years of yield data
-full_report <- corn_yield %>% mutate(tally = 1) %>% group_by(GEOID) %>% summarise(count = sum(tally)) %>% distinct() %>% filter(count == 11)
+full_report <- corn_yield %>% mutate(tally = 1) %>% group_by(GEOID) %>% summarise(count = sum(tally)) %>% distinct() %>% filter(count == 11) %>% 
+  mutate(full = case_when(
+    count == 11 ~ "All yield data reported"))
   
-fr_sp <- merge(ctys, full_report, by = "GEOID")
+fr_sp <- merge(ctys, full_report, by = "GEOID", all = FALSE)
 
-#### BIOPHYSICAL
-b_infill <- readRDS("./data/data-out/bio_infill.RDS")
+ctys_df <- as.data.frame(ctys)
+ctys_nodata <- ctys_df %>% filter(!(GEOID %in% corn_yield$GEOID)) %>% mutate(type = "No yield data reported")
+ctys_nodata_sp <- merge(ctys, ctys_nodata, by = "GEOID", all = FALSE)
+
+#### REDUCED
 
 # Take only counties with at least one year of corn yield data
-b_sum <- b_infill %>% group_by(GEOID) %>% summarise(ave = mean(average_prediction)) %>% filter(GEOID %in% y$GEOID)
+infill_sum <- infill %>% group_by(GEOID) %>% summarise(ave = mean(average_prediction)) %>% filter(GEOID %in% corn_yield$GEOID)
 
-b_sp <- merge(ctys, b_sum, by = "GEOID")
+infill_sum_sp <- merge(ctys, infill_sum, by = "GEOID", all=FALSE)
 
-b <- tm_shape(b_sp) +
-  tm_polygons(col = "ave", breaks = c(35,75,100,125,150,175,200,215), palette = "Oranges", border.col = "transparent", title = "Corn Yield\n(bu/acre)", legend.hist = TRUE) +
-  tm_legend(outside = TRUE, hist.width = 1.5) +
+
+f <- tm_shape(infill_sum_sp) +
+  tm_polygons(col = "ave", breaks = c(25,75,100,125,150,175,200,215), palette = "Oranges", border.col = "transparent", title = "Infilled Corn\nYield (bu/acre)", legend.hist = TRUE) +
+  tm_legend(outside = TRUE, hist.width = 0.6) +
   tm_layout(frame = FALSE,
-            legend.hist.size = 0.5) +
-    tm_shape(frr_final) +
+            legend.hist.size = 0.6) +
+  tm_shape(fr_sp) +
+  tm_polygons(col = "full", palette = "black", alpha = 0.8, border.col = "transparent", legend.show=TRUE, title = "") +
+  tm_shape(ctys_nodata_sp) +
+  tm_polygons(col = "type", palette = "gray", alpha = 0.9, border.col = "transparent", legend.show=TRUE, title = "") +
+      tm_shape(frr_final) +
   tm_borders(col = "black") 
 
-b
-tmap_save(tm = b, file = './viz/bioph-infill.png', dpi = 400)
-
-b2 <- readPNG("./viz/bioph-infill.png")
-b2 <- ggdraw() + draw_image(b2, scale = 1.05)
-#### FARMER
-f_infill <- readRDS("./data/data-out/farmer_infill.RDS")
-
-# Take only counties with at least one year of corn yield data
-f_sum <- f_infill %>% group_by(GEOID) %>% summarise(ave = mean(average_prediction)) %>% filter(GEOID %in% y$GEOID)
-
-f_sp <- merge(ctys, f_sum, by = "GEOID")
-
-f <- tm_shape(f_sp) +
-  tm_polygons(col = "ave", breaks = c(40,75,100,125,150,175,200,215), palette = "Oranges", border.col = "transparent", title = "Corn Yield\n(bu/acre)", legend.hist = TRUE) +
-  tm_legend(outside = TRUE, hist.width = 1.5) +
-  tm_layout(frame = FALSE,
-            legend.hist.size = 0.5) +
-    tm_shape(frr_final) +
-  tm_borders(col = "black")
-
 f
-tmap_save(tm = f, file = './viz/farmer-infill.png', dpi = 400)
+tmap_save(tm = f, file = './viz/Figure5.png', dpi = 400, width = 8, height = 5)
 
-f2 <- readPNG("./viz/farmer-infill.png")
-f2 <- ggdraw() + draw_image(f2, scale = 1.05)
-#### DIFFERENCE
-diff_infill <- readRDS("./data/data-out/infill_diff.RDS")
-
-diff_infill <- diff_infill %>%
-  filter(GEOID %in% y$GEOID)
-
-diff_sum <- diff_infill %>% group_by(GEOID) %>% 
-  summarise(BIOPH = mean(BIOPH),
-            FARMER = mean(FARMER),
-            DIFF = BIOPH-FARMER) %>% 
-  filter(GEOID %in% y$GEOID)
-
-diff_sp <- merge(ctys, diff_sum, by = "GEOID")
-
-diff <- tm_shape(diff_sp) +
-  tm_polygons(col = "DIFF", breaks = c(-30,-10,-5,-2.5,0,2.5,5,10,20,30), palette = c("#B2182B", "#D6604D", "#F4A582", "#FDDBC7", "#D1E5F0" ,"#92C5DE","#4393C3", "#2166AC", "#053061"), border.col = "transparent", title = "Average Difference\n(bushels/acre)", legend.hist = TRUE, title = title) +
-  tm_legend(outside = TRUE, hist.width = 1.5) +
-  tm_layout(frame = FALSE,
-            legend.hist.size = 0.5) +
-      tm_shape(frr_final) +
-  tm_borders(col = "black")
-
-diff
-
-tmap_save(tm = diff, file = './viz/diff-infill.png', dpi = 400)
-
-diff2 <- readPNG("./viz/diff-infill.png")
-diff2 <- ggdraw() + draw_image(diff2, scale = 1.05)
-
-plot_grid(b2, f2, diff2, nrow = 3, labels = c("A.", "B.", "C."))
-ggsave("./viz/Figure6.png", dpi = 400, width = 170, height  = 240, units = "mm", bg = "white")
-
-perc_infill <- diff_infill %>% dplyr::filter(DIFF > -10 & DIFF < 10) #4762/5677 = 83.9%
 
 ```
 
 
-## Figure 7. Partial dependence plots for consistently important variables in the a) biophysical ensemble and b) farm(er) ensemble. Partial dependence is the dependence of the outcome on one predictor after averaging out the effects of all other predictors in the model (Cutler et al., 2007). Partial dependence plots graphically characterize the relationship between an individual predictor (standardized, here) and the predicted values of yield (see SI Figure 10A-F for unstandardized relationships).
+## Figure 6. Partial dependence plots for important variables in the reduced ensemble. Partial dependence is the dependence of the outcome on one predictor after averaging out the effects of all other predictors in the model (Cutler et al., 2007). Partial dependence plots graphically characterize the relationship between an individual predictor (standardized, here) and the predicted values of yield.
 
-#### Biophysical partial dependence plots
+#### Reduced partial dependence plots
 ```{r}
 library(tidyverse)
 # irrigation
-irrs <- yield_RF %>% summarise(mean = mean(PERC_IRR), sd = sd(PERC_IRR))
-pdp_irr <- readRDS("./results/ranger-pdp/irr.RDS")
+irrs <- corn_yield %>% summarise(mean = mean(PERC_IRR), sd = sd(PERC_IRR))
+pdp_irr <- readRDS("./results/ranger-pdp/irr-red.RDS")
 pdp_irr$VAR = "Irrigation (% ag acres)"  
 pdp_irr$STANDARDIZED = ((pdp_irr$PERC_IRR - irrs$mean) / irrs$sd)
 colnames(pdp_irr) <- c("VALUE", "yhat", "VAR", "STANDARDIZED")
 # GDD
-gdds <- yield_RF %>% summarise(mean = mean(GDD), sd = sd(GDD))
-pdp_gdd <- readRDS("./results/ranger-pdp/GDD.RDS")
+gdds <- corn_yield %>% summarise(mean = mean(GDD), sd = sd(GDD))
+pdp_gdd <- readRDS("./results/ranger-pdp/GDD-red.RDS")
 pdp_gdd$VAR <- "Growing degree days (C)"
 pdp_gdd$STANDARDIZED <- ((pdp_gdd$GDD - gdds$mean) / gdds$sd)
 colnames(pdp_gdd) <- c("VALUE", "yhat", "VAR", "STANDARDIZED")
-# BV18
-bv18s <- yield_RF %>% summarise(mean = mean(BV18), sd = sd(BV18))
-pdp_bv18 <- readRDS("./results/ranger-pdp/BV18.RDS")
-pdp_bv18$VAR <- "Precipitation of warmest quarter (mm)"
-pdp_bv18$STANDARDIZED <- ((pdp_bv18$BV18 - bv18s$mean) / bv18s$sd)
-colnames(pdp_bv18) <- c("VALUE", "yhat", "VAR", "STANDARDIZED")
+# BV9
+bv9s <- corn_yield %>% summarise(mean = mean(BV9), sd = sd(BV9))
+pdp_bv9 <- readRDS("./results/ranger-pdp/BV9-red.RDS")
+pdp_bv9$VAR <- "Mean temperature of the driest quarter (C)"
+pdp_bv9$STANDARDIZED <- ((pdp_bv9$BV9 - bv9s$mean) / bv9s$sd)
+colnames(pdp_bv9) <- c("VALUE", "yhat", "VAR", "STANDARDIZED")
 # BV2
-bv2s <- yield_RF %>% summarise(mean = mean(BV2), sd = sd(BV2))
-pdp_bv2 <- readRDS("./results/ranger-pdp/BV2.RDS")
+bv2s <- corn_yield %>% summarise(mean = mean(BV2), sd = sd(BV2))
+pdp_bv2 <- readRDS("./results/ranger-pdp/BV2-red.RDS")
 pdp_bv2$VAR <- "Mean diurnal range (C)"
 pdp_bv2$STANDARDIZED <- ((pdp_bv2$BV2 - bv2s$mean) / bv2s$sd)
 colnames(pdp_bv2) <- c("VALUE", "yhat", "VAR", "STANDARDIZED")
-# SDI
-SDIs <- yield_RF %>% summarise(mean = mean(SDI_CDL_AG), sd = sd(SDI_CDL_AG))
-pdp_sdi <- readRDS("./results/ranger-pdp/SDI.RDS")
-pdp_sdi$VAR <- "Shannon's Diversity Index"
-pdp_sdi$STANDARDIZED <- ((pdp_sdi$SDI_CDL_AG - SDIs$mean) / SDIs$sd)
-colnames(pdp_sdi) <- c("VALUE", "yhat", "VAR", "STANDARDIZED")
+# lat
+lats <- panel %>% summarise(mean = mean(lat), sd = sd(lat))
+pdp_lat <- readRDS("./results/ranger-pdp/lat-red.RDS")
+pdp_lat$VAR <- "Latitude"
+pdp_lat$STANDARDIZED <- ((pdp_lat$lat - lats$mean) / lats$sd)
+colnames(pdp_lat) <- c("VALUE", "yhat", "VAR", "STANDARDIZED")
+# long
+lons <- panel %>% summarise(mean = mean(lon), sd = sd(lon))
+pdp_lon <- readRDS("./results/ranger-pdp/lon-red.RDS")
+pdp_lon$VAR <- "Longitude"
+pdp_lon$STANDARDIZED <- ((pdp_lon$lon - lons$mean) / lons$sd)
+colnames(pdp_lon) <- c("VALUE", "yhat", "VAR", "STANDARDIZED")
+# time
+years <- corn_yield %>% summarise(mean = mean(YEAR), sd = sd(YEAR))
+pdp_year<- readRDS("./results/ranger-pdp/year-red.RDS")
+pdp_year$VAR <- "Year"
+pdp_year$STANDARDIZED <- ((pdp_year$YEAR - years$mean) / years$sd)
+colnames(pdp_year) <- c("VALUE", "yhat", "VAR", "STANDARDIZED")
 
 # merge into one dataframe
-pdp <- rbind(pdp_irr,pdp_gdd,pdp_bv18,pdp_bv2,pdp_sdi)
+pdp <- rbind(pdp_irr,pdp_gdd,pdp_bv9,pdp_bv2,pdp_year,pdp_lat,pdp_lon)
+saveRDS(pdp,"./results/ranger-pdp/reduced-pdp-data.RDS")
 
-bioph_pdp <- ggplot(pdp) +   
-  geom_line(aes(x = STANDARDIZED, y = yhat, color = VAR), size = 1.2) + 
+reduced_pdp <- ggplot(pdp) +   
+  geom_line(aes(x = STANDARDIZED, y = yhat, color = factor(VAR)), size = 1.2) + 
   theme_classic() +
   theme(legend.title = element_blank(), legend.position = "bottom") + 
-  scale_colour_manual(values=c("#CCCC99", "#99CC99", "#CC6633", "#4A7DA5", "#99CCFF")) + #, "#336633"
-  labs(x = "Standardized values",        
-       y = "Predicted Yield (bu/acre)") +  
-  guides(color=guide_legend(nrow=2)) +
-  theme(text = element_text(size=16),
-        legend.text = element_text(size = 14)) 
+  scale_colour_manual(values=c("gray","#CCCC99", "#99CC99", "#CC6633", "#4A7DA5", "#99CCFF","#336633")) + 
+  labs(y = "Predicted Yield (bu/acre)",
+       x = "") +  
+  guides(color=guide_legend(nrow=3)) +
+  theme(legend.position = "none",
+        axis.title.y = element_text(angle = 90, vjust = 0, margin=margin(r=6))) 
+reduced_pdp
 
-ggsave(bioph_pdp, file = './viz/bioph_pdp.png', dpi = 300)
+saveRDS(pdp, "results/ranger-pdp/pdp-reduced-data.RDS")
+
+box_data <- panel %>% 
+  select(GEOID, GDD, PERC_IRR, BV9, BV2, lat, lon, YEAR) 
+colnames(box_data) <- c("GEOID","Growing Degree Days (C)","Irrigation (% ag acres)","Mean temperature of the direst quarter (C)","Mean diurnal range (C)","Latitude","Longitude","Year")
+box_data <- box_data %>% 
+  pivot_longer(2:8,names_to = "Variable",values_to = "VAL") %>% 
+  group_by(Variable) %>% 
+  mutate(mean = mean(VAL), sd = sd(VAL),
+         standardized = (VAL - mean) / sd) 
+
+p2 <- ggplot(box_data, aes(x = standardized,
+                           y = factor(Variable),
+                           color = factor(Variable))) +
+  scale_colour_manual(values=c("gray","#CCCC99", "#99CC99", "#CC6633", "#4A7DA5", "#99CCFF","#336633")) +
+  geom_boxplot() +
+  theme_bw() +
+  xlab("Standardized Predictor Value")+
+  ylab("") +
+  theme(legend.position = "none")
+
+library(cowplot)
+cowplot::plot_grid(reduced_pdp, p2, align = "v", ncol = 1, axis = "l",
+
+                   rel_heights = c(3, 1))     
+
+ggsave(file = './viz/Figure6.png', dpi = 300, height = 220, width = 220,units="mm")
 ```
 
-#### Farm(er) partial dependence plots
-```{r}
-library(tidyverse)
-# fertilizer
-ferts <- yield_RF %>% summarise(mean = mean(fert), sd = sd(fert))
-pdp_fert <- readRDS("./results/ranger-pdp/fert.RDS")
-pdp_fert$VAR = "Fertilizer ($/acre)"  
-pdp_fert$STANDARDIZED = ((pdp_fert$fert - ferts$mean) / ferts$sd)
-colnames(pdp_fert) <- c("VALUE", "yhat", "VAR", "STANDARDIZED")
-# % ag acres cultivated in corn
-corns <- yield_RF%>% summarise(mean = mean(perc_corn), sd = sd(perc_corn))
-pdp_corn <- readRDS("./results/ranger-pdp/corn_acreage.RDS")
-pdp_corn$VAR <- "Corn acreage (% cultivated acres)"
-pdp_corn$STANDARDIZED = ((pdp_corn$perc_corn - corns$mean) / corns$sd)
-colnames(pdp_corn) <- c("VALUE", "yhat", "VAR", "STANDARDIZED")
-# chemicals
-chems <- yield_RF %>% summarise(mean = mean(chem), sd = sd(chem))
-pdp_chem <- readRDS("./results/ranger-pdp/chem.RDS")
-pdp_chem$VAR <- "Chemicals ($/acre)"
-pdp_chem$STANDARDIZED <- ((pdp_chem$chem - chems$mean) / chems$sd)
-colnames(pdp_chem) <- c("VALUE", "yhat", "VAR", "STANDARDIZED")
-# insurance
-insurs <- yield_RF %>% summarise(mean = mean(insur_acres), sd = sd(insur_acres))
-pdp_insur <- readRDS("./results/ranger-pdp/insur.RDS")
-pdp_insur$VAR <- "Insurance ($/acre)"
-pdp_insur$STANDARDIZED <- ((pdp_insur$insur_acres - insurs$mean) / insurs$sd)
-colnames(pdp_insur) <- c("VALUE", "yhat", "VAR", "STANDARDIZED")
-# government receipts
-gvts <- yield_RF %>% summarise(mean = mean(gvt_prog), sd = sd(gvt_prog))
-pdp_gvt <- readRDS("./results/ranger-pdp/gvt_prog.RDS")
-pdp_gvt$VAR <- "Government receipts ($/acre)"
-pdp_gvt$STANDARDIZED <- ((pdp_gvt$gvt_prog - gvts$mean) / gvts$sd)
-colnames(pdp_gvt) <- c("VALUE", "yhat", "VAR", "STANDARDIZED")
-
-# merge into one dataframe
-pdp_f <- rbind(pdp_fert,pdp_corn,pdp_chem,pdp_insur,pdp_gvt)
-
-farmer_pdp <- ggplot(pdp_f) +   
-  geom_line(aes(x = STANDARDIZED, y = yhat, color = VAR), size = 1.2) + 
-  theme_classic() +
-  theme(legend.title = element_blank(), legend.position = "bottom") + 
-  scale_colour_manual(values=wes_palette("Darjeeling2")) + 
-  labs(x = "Standardized values",        
-       y = "Predicted Yield (bu/acre)") +  
-  xlim(c(-1.5,8)) +
-  guides(color=guide_legend(nrow=2)) +
-  theme(text = element_text(size=16),
-        legend.text = element_text(size = 14)) 
-
-ggsave(farmer_pdp, file = './viz/farmer_pdp.png', dpi = 300)
-
-ggarrange(bioph_pdp, farmer_pdp, nrow = 2, labels = c("A.", "B."))
-ggsave("./viz/Figure7.png", dpi = 400, height = 400, width = 250,units="mm")
-
-pdp.all <- rbind(pdp,pdp_f)
-saveRDS(pdp.all, "results/ranger-pdp/pdp-data.RDS")
-```
 

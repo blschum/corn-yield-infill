@@ -40,22 +40,16 @@ library(ggpubr)
 library(egg)
 
 # Bring in data
-bioph_preds <- readRDS('./data/data-out/ensemble_bioph_preds.RDS')
-farmer_preds <- readRDS('./data/data-out/ensemble_farm_preds.RDS')
+biophcv_preds <- readRDS('./results/biofull_cvpreds_ave.RDS')
+farmercv_preds <- readRDS('./results/farmerfull_cvpreds_ave.RDS')
+reducedcv_preds <- readRDS("./results/sp_cl_cvpreds_ave.RDS")
 ctys <- readRDS("./data/county.RDS")
 state <- readRDS("./data/states.RDS")
+frr <- readRDS("./data/FRR.RDS")
 corn_yield <- readRDS("./data/yieldRF.RDS")
+removed <- read.csv("./results/impute-remove.csv")
 
 # build frr spatial
-frr <- read.csv("./data/FRR_data.csv") 
-frr <- frr[,1:2]
-colnames(frr)<- c("GEOID", "FRR")
-frr$GEOID <- str_pad(frr$GEOID, width = 5, side = "left", pad= "0") 
-
-#Make spatial:
-frr_shp <- merge(ctys, frr, by = "GEOID")
-spplot(frr_shp, "FRR")
-
 getmode <- function(v) {
   uniqv <- unique(v)
   uniqv[which.max(tabulate(match(v, uniqv)))]
@@ -63,22 +57,37 @@ getmode <- function(v) {
 
 #Aggregate counties to the regional boundaries:
 library(maptools)
-frr_agg <- unionSpatialPolygons(SpP = frr_shp, IDs = frr_shp$FRR)
-frr_final <- aggregate(frr_shp["FRR"], frr_agg, FUN = getmode)
+frr_agg <- unionSpatialPolygons(SpP = frr, IDs = frr$FRR)
+frr_final <- aggregate(frr["FRR"], frr_agg, FUN = getmode)
+
+# Visualize difference between reported yield (YIELD) and predicted yield (PREDICTIONS) across space-time
+biophcv_sp <- merge(ctys, biophcv_preds, by = "GEOID", duplicateGeoms = TRUE)
+farmercv_sp <- merge(ctys, farmercv_preds, by = "GEOID", duplicateGeoms = TRUE)
+reducedcv_sp <- merge(ctys, reducedcv_preds, by = "GEOID", duplicateGeoms = TRUE)
 ```
 
-## SI Figure 1. Correlation matrix for continuous predictors and corn yield in A) biophysical; and b) farm(er) RF ensembles (see SI Table 1, above for variables, units, and descriptions associated with variable names listed below)
+## SI Figure 1. Count of missingness across CoA years. Note: Where category is 0, a county reported yield data across all 11 years (e.g., Corn Belt), where the category is 10, a county reported only 1 year of yield data (e.g., southern Arizona). The “missing” category refers to all counties where NASS reported no corn yields from 2008-2018; these counties may be “missing” because they produced no corn, or, more likely, because there were not enough reporting growers to meet NASS statistical disclosure requirements. 
+```{r}
+# Build missing
+missing <- corn_yield %>% dplyr::select(GEOID,YEAR,YIELD) %>% group_by(GEOID) %>% summarise(count = n()) %>% mutate(count = as.factor(11 - count))
+
+missing_sp <- merge(ctys, missing, by = "GEOID")
+
+map <- tm_shape(missing_sp) +
+  tm_polygons(col = "count", palette = "Reds", border.col = "transparent", title = "Count County-Year\nObservations Missing") +
+  tm_legend(outside = TRUE) +
+  tm_layout(frame = FALSE) +
+    tm_shape(frr_final) +
+  tm_borders(col = "black")
+
+map
+
+tmap_save(map, file = './viz/SIFigure1.png', dpi = 400)
+```
+
+## SI Figure 2. Correlation matrix for continuous predictors and corn yield (see SI Table 1, above for variables, units, and descriptions associated with variable names listed below)
 ```{r}
 corn_yield <- readRDS("./data/yieldRF.RDS")
-corn_bioph <- corn_yield %>% select(GEOID,YEAR,YIELD,PERC_IRR,FRR,GDD,BV2,BV18,SDI_CDL_AG,BV9,BV4,TP,ELEVATION,S_PH_H2O,SLOPE,BV8,BV19,T_CEC_SOIL,BV15,T_REF_BULK_DENSITY,T_OC)
-corn_bioph <- corn_bioph %>% dplyr::select(-c(GEOID,FRR,YEAR))
-
-# show correlations
-corr_yield <- round(cor(corn_bioph[1:18]), 2)
-p.mat_yield <- cor_pmat(corn_bioph[c(1:18)])
-corrplot_bioph <- ggcorrplot(corr_yield, hc.order = FALSE, p.mat = p.mat_yield, outline.col = "white", type = "lower", insig = "blank",lab = F, ggtheme = ggplot2::theme_minimal, colors = c("#6D9EC1", "white", "#E46726"))
-
-ggsave(filename = "./viz/SIFigure1A.png", plot = corrplot_bioph, dpi = 300, width = 7, height = 7)
 
 corn_farm <- corn_yield %>% 
   select(!GEOID) %>% 
@@ -91,11 +100,253 @@ p.mat_yield <- cor_pmat(corn_farm[c(1:29)])
 corrplot_farm <- ggcorrplot(corr_yield, hc.order = FALSE, p.mat = p.mat_yield, outline.col = "white", type = "lower", insig = "blank",lab = F, ggtheme = ggplot2::theme_minimal, colors = c("#6D9EC1", "white", "#E46726")
                             )
 
-ggsave(filename = "./viz/SIFigure1B.png", plot = corrplot_farm, dpi = 300, width = 7, height = 7)
+ggsave(filename = "./viz/SIFigure2.png", plot = corrplot_farm, dpi = 300, width = 7, height = 7)
 
 ```
 
-## SI Figure 2. Partial dependence plots of important variables from biophysical and farm(er) ensembles (raw data, not standardized); Partial dependence on: A) precipitation of the warmest quarter (BV18); B) % cultivated area in corn (perc_corn); C) growing degree days (GDD); D) irrigation (PERC_IRR); E) Shannon’s Diversity Index (SDI_CDL_AG); F) mean diurnal range (BV2); G) chemicals ($/acre); H) fertilizers ($/acre); I) government receipts ($/acre); and J) insurance ($/acre).
+## SI Figure 3. Map of counties excluded due to missing data across census years. Note: “Missing” here refers to all other US counties not removed due to CoA imputation.
+```{r}
+# Build removed
+removed <- removed %>% mutate(removed = "Removed")
+removed_sp <- merge(ctys, removed, by = "GEOID")
+
+map <- tm_shape(removed_sp) +
+  tm_polygons(col = "removed", palette = "Purples", border.col = "transparent", title = "234 Counties Excluded\nAfter CoA Imputation") +
+  tm_legend(outside = TRUE) +
+  tm_layout(frame = FALSE) +
+    tm_shape(frr_final) +
+  tm_borders(col = "black")
+
+map
+
+tmap_save(map, file = './viz/SIFigure3.png', dpi = 400)
+```
+
+## SI Figure 4. Biophysical RF ensemble model performance based on five-fold cross validation. A) Average error in model predictions in bushels/acre observed across ensemble models (n = 50 replications) and years (2008-2018). Counties in which predicted yields were less (greater) than observed yields appear in shades of red (blue). B) Observed v. predicted plot for the full panel dataset. The dashed line indicates a 1:1 relationship, the solid blue line shows a linear regression between the observed and predicted yields.
+```{r}
+cor(biophcv_preds$YIELD, biophcv_preds$average_prediction, method = "pearson")
+
+p <- ggplot(biophcv_preds, aes(x=YIELD, y=average_prediction)) +
+  geom_point(size = 0.5) + 
+  geom_smooth(method=lm, se=FALSE, fullrange=TRUE)+
+  geom_abline(intercept = 0, slope = 1, color="black", 
+                 linetype="dashed", size=0.65) +
+  theme_classic() +
+  xlab("Observed (bushels/acre)") +
+  ylab("Ensemble Predicted (bushels/acre)") +
+  xlim(1,250) +
+  ylim(0,250) +
+  annotate("text", x = 175.0, y = 40.0, label = "RMSE = 16.5 bushels/acre\nVariance Explained = 82.5%", hjust=0)
+p
+
+# % between -10 and 10
+perc <- biophcv_preds %>% dplyr::filter(error > -10 & error < 10) #8643/16983 = 50.9%
+
+map <- tm_shape(biophcv_sp) +
+  tm_polygons(col = "error", breaks = c(-100,-30,-20,-10,-5,0,5,10,20,30,100), palette = c("#67001F","#B2182B", "#D6604D", "#F4A582", "#FDDBC7", "#D1E5F0" ,"#92C5DE","#4393C3", "#2166AC", "#053061"), border.col = "transparent", title = "Average Error\n(bushels/acre)", legend.hist = TRUE, title = title) +
+  tm_legend(outside = TRUE, hist.width = 1.5) +
+  tm_layout(frame = FALSE,
+            legend.hist.size = 0.5) +
+      tm_shape(frr_final) +
+  tm_borders(col = "black")
+
+tmap_save(tm = map, file = './viz/biophcv-rf-performance.png', dpi = 400)
+
+img <- readPNG("./viz/biophcv-rf-performance.png")
+photo_panel <- ggdraw() + draw_image(img, scale = 1.05)
+
+plot_grid(photo_panel, p, nrow = 2, labels = c("A.", "B."))
+ggsave("./viz/SIFigure4.png", dpi = 400, width = 170, height  = 240, units = "mm", bg = "white")
+
+```
+
+## SI Figure 5. Farm(er) RF ensemble model performance based on five-fold cross validation. A) Average error in model predictions in bushels/acre observed across ensemble models (n = 50 replications) and years (2008-2018). Counties in which predicted yields were less (greater) than observed yields appear in shades of red (blue). B) Observed v. predicted plot for the full panel dataset. The dashed line indicates a 1:1 relationship, the solid blue line shows a linear regression between the observed and predicted yields.
+```{r}
+cor(farmercv_preds$YIELD, farmercv_preds$average_prediction, method = "pearson")
+
+p <- ggplot(farmercv_preds, aes(x=YIELD, y=average_prediction)) +
+  geom_point(size = 0.5) + 
+  geom_smooth(method=lm, se=FALSE, fullrange=TRUE)+
+  geom_abline(intercept = 0, slope = 1, color="black", 
+                 linetype="dashed", size=0.65) +
+  theme_classic() +
+  xlab("Observed (bushels/acre)") +
+  ylab("Ensemble Predicted (bushels/acre)") +
+  xlim(1,250) +
+  ylim(0,250) +
+  annotate("text", x = 175.0, y = 40.0, label = "RMSE = 17.3 bushels/acre\nVariance Explained = 80.8%", hjust=0)
+p
+
+# % between -10 and 10
+perc <- farmercv_preds %>% dplyr::filter(error > -10 & error < 10) #8388/16983 = 49.4%
+
+map <- tm_shape(farmercv_sp) +
+  tm_polygons(col = "error", breaks = c(-100,-30,-20,-10,-5,0,5,10,20,30,100), palette = c("#67001F","#B2182B", "#D6604D", "#F4A582", "#FDDBC7", "#D1E5F0" ,"#92C5DE","#4393C3", "#2166AC", "#053061"), border.col = "transparent", title = "Average Error\n(bushels/acre)", legend.hist = TRUE, title = title) +
+  tm_legend(outside = TRUE, hist.width = 1.5) +
+  tm_layout(frame = FALSE,
+            legend.hist.size = 0.5) +
+      tm_shape(frr_final) +
+  tm_borders(col = "black")
+
+tmap_save(tm = map, file = './viz/farmercv-rf-performance.png', dpi = 400)
+
+img <- readPNG("./viz/farmercv-rf-performance.png")
+photo_panel <- ggdraw() + draw_image(img, scale = 1.05)
+
+plot_grid(photo_panel, p, nrow = 2, labels = c("A.", "B."))
+ggsave("./viz/SIFigure5.png", dpi = 400, width = 170, height  = 240, units = "mm", bg = "white")
+
+```
+
+## SI Figure 6. Group exclusion (climate + space + time) RF ensemble model performance based on five-fold cross validation. A) Average error in model predictions in bushels/acre observed across ensemble models (n = 50 replications) and years (2008-2018). Counties in which predicted yields were less (greater) than observed yields appear in shades of red (blue). B) Observed v. predicted plot for the full panel dataset. The dashed line indicates a 1:1 relationship, the solid blue line shows a linear regression between the observed and predicted yields.
+```{r}
+cor(reducedcv_preds$YIELD, reducedcv_preds$average_prediction, method = "pearson")
+
+p <- ggplot(reducedcv_preds, aes(x=YIELD, y=average_prediction)) +
+  geom_point(size = 0.5) + 
+  geom_smooth(method=lm, se=FALSE, fullrange=TRUE)+
+  geom_abline(intercept = 0, slope = 1, color="black", 
+                 linetype="dashed", size=0.65) +
+  theme_classic() +
+  xlab("Observed (bushels/acre)") +
+  ylab("Ensemble Predicted (bushels/acre)") +
+  xlim(1,250) +
+  ylim(0,250) +
+  annotate("text", x = 175.0, y = 40.0, label = "RMSE = 17.2 bushels/acre\nVariance Explained = 80.9%", hjust=0)
+p
+
+# % between -10 and 10
+perc <- reducedcv_preds %>% dplyr::filter(error > -10 & error < 10) #8316/16983 = 49.0%
+
+map <- tm_shape(reducedcv_sp) +
+  tm_polygons(col = "error", breaks = c(-100,-30,-20,-10,-5,0,5,10,20,30,100), palette = c("#67001F","#B2182B", "#D6604D", "#F4A582", "#FDDBC7", "#D1E5F0" ,"#92C5DE","#4393C3", "#2166AC", "#053061"), border.col = "transparent", title = "Average Error\n(bushels/acre)", legend.hist = TRUE, title = title) +
+  tm_legend(outside = TRUE, hist.width = 1.5) +
+  tm_layout(frame = FALSE,
+            legend.hist.size = 0.5) +
+      tm_shape(frr_final) +
+  tm_borders(col = "black")
+
+tmap_save(tm = map, file = './viz/reducedcv-rf-performance.png', dpi = 400)
+
+img <- readPNG("./viz/reducedcv-rf-performance.png")
+photo_panel <- ggdraw() + draw_image(img, scale = 1.05)
+
+plot_grid(photo_panel, p, nrow = 2, labels = c("A.", "B."))
+ggsave("./viz/SIFigure6.png", dpi = 400, width = 170, height  = 240, units = "mm", bg = "white")
+```
+
+## SI Figure 7. Partial dependence plots for consistently important variables in the a) biophysical ensemble and b) farm(er) ensemble. Partial dependence is the dependence of the outcome on one predictor after averaging out the effects of all other predictors in the model (Cutler et al., 2007). Partial dependence plots graphically characterize the relationship between an individual predictor (standardized, here) and the predicted values of yield (see SI Figure 8A-F for unstandardized relationships).
+
+#### Biophysical partial dependence plots
+```{r}
+library(tidyverse)
+# irrigation
+irrs <- corn_yield %>% summarise(mean = mean(PERC_IRR), sd = sd(PERC_IRR))
+pdp_irr <- readRDS("./results/ranger-pdp/irr.RDS")
+pdp_irr$VAR = "Irrigation (% ag acres)"  
+pdp_irr$STANDARDIZED = ((pdp_irr$PERC_IRR - irrs$mean) / irrs$sd)
+colnames(pdp_irr) <- c("VALUE", "yhat", "VAR", "STANDARDIZED")
+# GDD
+gdds <- corn_yield %>% summarise(mean = mean(GDD), sd = sd(GDD))
+pdp_gdd <- readRDS("./results/ranger-pdp/GDD.RDS")
+pdp_gdd$VAR <- "Growing degree days (C)"
+pdp_gdd$STANDARDIZED <- ((pdp_gdd$GDD - gdds$mean) / gdds$sd)
+colnames(pdp_gdd) <- c("VALUE", "yhat", "VAR", "STANDARDIZED")
+# BV18
+bv18s <- corn_yield %>% summarise(mean = mean(BV18), sd = sd(BV18))
+pdp_bv18 <- readRDS("./results/ranger-pdp/BV18.RDS")
+pdp_bv18$VAR <- "Precipitation of warmest quarter (mm)"
+pdp_bv18$STANDARDIZED <- ((pdp_bv18$BV18 - bv18s$mean) / bv18s$sd)
+colnames(pdp_bv18) <- c("VALUE", "yhat", "VAR", "STANDARDIZED")
+# BV2
+bv2s <- corn_yield %>% summarise(mean = mean(BV2), sd = sd(BV2))
+pdp_bv2 <- readRDS("./results/ranger-pdp/BV2.RDS")
+pdp_bv2$VAR <- "Mean diurnal range (C)"
+pdp_bv2$STANDARDIZED <- ((pdp_bv2$BV2 - bv2s$mean) / bv2s$sd)
+colnames(pdp_bv2) <- c("VALUE", "yhat", "VAR", "STANDARDIZED")
+# SDI
+SDIs <- corn_yield %>% summarise(mean = mean(SDI_CDL_AG), sd = sd(SDI_CDL_AG))
+pdp_sdi <- readRDS("./results/ranger-pdp/SDI.RDS")
+pdp_sdi$VAR <- "Shannon's Diversity Index"
+pdp_sdi$STANDARDIZED <- ((pdp_sdi$SDI_CDL_AG - SDIs$mean) / SDIs$sd)
+colnames(pdp_sdi) <- c("VALUE", "yhat", "VAR", "STANDARDIZED")
+
+# merge into one dataframe
+pdp <- rbind(pdp_irr,pdp_gdd,pdp_bv18,pdp_bv2,pdp_sdi)
+
+bioph_pdp <- ggplot(pdp) +   
+  geom_line(aes(x = STANDARDIZED, y = yhat, color = VAR), size = 1.2) + 
+  theme_classic() +
+  theme(legend.title = element_blank(), legend.position = "bottom") + 
+  scale_colour_manual(values=c("#CCCC99", "#99CC99", "#CC6633", "#4A7DA5", "#99CCFF")) + #, "#336633"
+  labs(x = "Standardized values",        
+       y = "Predicted Yield (bu/acre)") +  
+  guides(color=guide_legend(nrow=2)) +
+  theme(text = element_text(size=16),
+        legend.text = element_text(size = 14)) 
+
+#ggsave(bioph_pdp, file = './viz/bioph_pdp.png', dpi = 300)
+```
+
+#### Farm(er) partial dependence plots
+```{r}
+library(tidyverse)
+# fertilizer
+ferts <- corn_yield %>% summarise(mean = mean(fert), sd = sd(fert))
+pdp_fert <- readRDS("./results/ranger-pdp/fert.RDS")
+pdp_fert$VAR = "Fertilizer ($/acre)"  
+pdp_fert$STANDARDIZED = ((pdp_fert$fert - ferts$mean) / ferts$sd)
+colnames(pdp_fert) <- c("VALUE", "yhat", "VAR", "STANDARDIZED")
+# % ag acres cultivated in corn
+corns <- corn_yield%>% summarise(mean = mean(perc_corn), sd = sd(perc_corn))
+pdp_corn <- readRDS("./results/ranger-pdp/corn_acreage.RDS")
+pdp_corn$VAR <- "Corn acreage (% cultivated acres)"
+pdp_corn$STANDARDIZED = ((pdp_corn$perc_corn - corns$mean) / corns$sd)
+colnames(pdp_corn) <- c("VALUE", "yhat", "VAR", "STANDARDIZED")
+# chemicals
+chems <- corn_yield %>% summarise(mean = mean(chem), sd = sd(chem))
+pdp_chem <- readRDS("./results/ranger-pdp/chem.RDS")
+pdp_chem$VAR <- "Chemicals ($/acre)"
+pdp_chem$STANDARDIZED <- ((pdp_chem$chem - chems$mean) / chems$sd)
+colnames(pdp_chem) <- c("VALUE", "yhat", "VAR", "STANDARDIZED")
+# insurance
+insurs <- corn_yield %>% summarise(mean = mean(insur_acres), sd = sd(insur_acres))
+pdp_insur <- readRDS("./results/ranger-pdp/insur.RDS")
+pdp_insur$VAR <- "Insurance ($/acre)"
+pdp_insur$STANDARDIZED <- ((pdp_insur$insur_acres - insurs$mean) / insurs$sd)
+colnames(pdp_insur) <- c("VALUE", "yhat", "VAR", "STANDARDIZED")
+# government receipts
+gvts <- corn_yield %>% summarise(mean = mean(gvt_prog), sd = sd(gvt_prog))
+pdp_gvt <- readRDS("./results/ranger-pdp/gvt_prog.RDS")
+pdp_gvt$VAR <- "Government receipts ($/acre)"
+pdp_gvt$STANDARDIZED <- ((pdp_gvt$gvt_prog - gvts$mean) / gvts$sd)
+colnames(pdp_gvt) <- c("VALUE", "yhat", "VAR", "STANDARDIZED")
+
+# merge into one dataframe
+pdp_f <- rbind(pdp_fert,pdp_corn,pdp_chem,pdp_insur,pdp_gvt)
+
+farmer_pdp <- ggplot(pdp_f) +   
+  geom_line(aes(x = STANDARDIZED, y = yhat, color = VAR), size = 1.2) + 
+  theme_classic() +
+  theme(legend.title = element_blank(), legend.position = "bottom") + 
+  scale_colour_manual(values=wes_palette("Darjeeling2")) + 
+  labs(x = "Standardized values",        
+       y = "Predicted Yield (bu/acre)") +  
+  xlim(c(-1.5,8)) +
+  guides(color=guide_legend(nrow=2)) +
+  theme(text = element_text(size=16),
+        legend.text = element_text(size = 14)) 
+
+#ggsave(farmer_pdp, file = './viz/farmer_pdp.png', dpi = 300)
+
+ggarrange(bioph_pdp, farmer_pdp, nrow = 2, labels = c("A.", "B."))
+ggsave("./viz/SIFigure7.png", dpi = 400, height = 400, width = 250,units="mm")
+
+pdp.all <- rbind(pdp,pdp_f)
+saveRDS(pdp.all, "results/ranger-pdp/pdp-data.RDS")
+```
+
+## SI Figure 8. Partial dependence plots of important variables from biophysical and farm(er) ensembles (raw data, not standardized); Partial dependence on: A) precipitation of the warmest quarter (BV18); B) % cultivated area in corn (perc_corn); C) growing degree days (GDD); D) irrigation (PERC_IRR); E) Shannon’s Diversity Index (SDI_CDL_AG); F) mean diurnal range (BV2); G) chemicals ($/acre); H) fertilizers ($/acre); I) government receipts ($/acre); and J) insurance ($/acre).
 
 ```{r}
 pdp.all <- readRDS("./results/ranger-pdp/pdp-data.RDS")
@@ -111,10 +362,48 @@ pdp.all.viz <- ggplot(pdp.all) +
 
 tag_facet(pdp.all.viz, size = 3, vjust = 0.9)
 
-ggsave("./viz/SIFigure2.png", dpi = 400, height = 8, width = 6, units = "in")
+ggsave("./viz/SIFigure8.png", dpi = 400, height = 8, width = 6, units = "in")
+```
+## SI Figure 9. Partial dependence plots of important variables from reduced ensemble (raw data, not standardized); Partial dependence on: A) precipitation of the warmest quarter (BV18); B) % cultivated area in corn (perc_corn); C) growing degree days (GDD); D) irrigation (PERC_IRR); E) Shannon’s Diversity Index (SDI_CDL_AG); F) mean diurnal range (BV2); G) chemicals ($/acre); H) fertilizers ($/acre); I) government receipts ($/acre); and J) insurance ($/acre).
+
+```{r}
+pdp.red <- readRDS("./results/ranger-pdp/reduced-pdp-data.RDS")
+pdp.red_raw <- pdp.red %>% select(1:3)
+pdp_bv4 <- readRDS("./results/ranger-pdp/BV4-red.RDS")
+pdp_bv4$VAR <- "Temperature seasonality"
+colnames(pdp_bv4) <- c("VALUE", "yhat", "VAR")
+pdp_bv18 <- readRDS("./results/ranger-pdp/BV18-red.RDS")
+pdp_bv18$VAR <- "Precipitation of warmest quarter (mm)"
+colnames(pdp_bv18) <- c("VALUE", "yhat", "VAR")
+pdp_bv19 <- readRDS("./results/ranger-pdp/BV19-red.RDS")
+pdp_bv19$VAR <- "Precipitation of coldest quarter (mm)"
+colnames(pdp_bv19) <- c("VALUE", "yhat", "VAR")
+pdp_TP <- readRDS("./results/ranger-pdp/TP-red.RDS")
+pdp_TP$VAR <- "Total precipitation (mm)"
+colnames(pdp_TP) <- c("VALUE", "yhat", "VAR")
+pdp_bv15 <- readRDS("./results/ranger-pdp/BV15-red.RDS")
+pdp_bv15$VAR <- "Precipitation seasonality"
+colnames(pdp_bv15) <- c("VALUE", "yhat", "VAR")
+pdp_bv8 <- readRDS("./results/ranger-pdp/BV8-red.RDS")
+pdp_bv8$VAR <- "Mean temperature of the wettest quarter (C)"
+colnames(pdp_bv8) <- c("VALUE", "yhat", "VAR")
+pdp <- rbind(pdp.red_raw,pdp_bv4,pdp_bv18,pdp_bv19,pdp_TP,pdp_bv15,pdp_bv8)
+
+pdp.red.viz <- ggplot(pdp) +   
+  geom_line(aes(x = VALUE, y = yhat)) + 
+  theme_classic() +
+  labs(x = "Raw Value",        
+       y = "Predicted Yield (bu/acre)")  +
+  facet_wrap(~ VAR, scales = "free", ncol = 3)+  
+  theme_minimal() +
+  theme(strip.text.x = element_text(size=6)) 
+
+tag_facet(pdp.red.viz, size = 3, vjust = 0.9)
+
+ggsave("./viz/SIFigure9.png", dpi = 400, height = 8, width = 6, units = "in")
 ```
 
-SI Figure 3. Bivariate choropleth constructed by binning county-level average corn yield (bushels/acre) and percent acres cultivated in corn on agricultural lands from 2008-2018 into thirds; each tercile is then paired and binned into distinct categories. Yellow indicates counties with high average corn yields and an agricultural landscape dominated by corn production, while purple indicates counties with low average yields and a low percentage of agricultural acres in corn. Gray counties indicate missing data.
+## SI Figure 10. Bivariate choropleth constructed by binning county-level average corn yield (bushels/acre) and percent acres cultivated in corn on agricultural lands from 2008-2018 into thirds; each tercile is then paired and binned into distinct categories. Yellow indicates counties with high average corn yields and an agricultural landscape dominated by corn production, while purple indicates counties with low average yields and a low percentage of agricultural acres in corn. Gray counties indicate missing data.
 ```{r}
 yield_dom <- corn_yield %>% dplyr::select(GEOID, YIELD, YEAR, perc_corn) %>% group_by(GEOID) %>%  summarise(YIELD = mean(YIELD), perc_corn = mean(perc_corn))
 
@@ -176,21 +465,20 @@ map <- tm_shape(d_complete) +
 
 map
 
-tmap_save(map, file = paste0('./viz/SIFigure3-nolegend.png'), dpi = 400)
+tmap_save(map, file = paste0('./viz/SIFigure10-nolegend.png'), dpi = 400)
 
 ```
 
-SI Figure 4.
-
+## SI Figure 11. Percent irrigated acreage on agricultural lands across study years (2008-2018) faceted by prediction class.
 ```{r}
 # box whisker comparing difficult to regress places and easy v. irrigated extent
-ibw <- bioph_preds
+ibw <- biophcv_preds
 ibw$cat <- ifelse(ibw$error < -10 | ibw$error > 10, "Greater than |10| bu/acre", "Less than |10| bu/acre")
 ibw$cat <- as.factor(ibw$cat)
 
 ibw <- merge(ibw, corn_yield, by = c("GEOID", "YEAR", "YIELD"))
 
-bw <- ggplot(ibw, aes(x=YEAR, y=PERC_IRR, fill=cat)) +
+bw <- ggplot(ibw, aes(x=factor(YEAR), y=PERC_IRR, fill=cat)) +
   geom_boxplot() +
   theme_classic() +
   theme(legend.position = "bottom") +
@@ -204,6 +492,6 @@ bw <- ggplot(ibw, aes(x=YEAR, y=PERC_IRR, fill=cat)) +
   guides(fill=guide_legend(title="Error"))
 bw
 
-ggsave(filename = "./viz/SIFigure4.png", plot = bw, dpi = 400, width = 7, height = 5)
+ggsave(filename = "./viz/SIFigure11.png", plot = bw, dpi = 400, width = 7, height = 5)
 ```
 
