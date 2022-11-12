@@ -18,9 +18,8 @@ get_cv_rmse <- function(formula, data, k, ...){
   
   actual <- model.response(model.frame(formula, data))
   
-  # rmse, median absolute error, and sMAPE
-  # https://en.wikipedia.org/wiki/Symmetric_mean_absolute_percentage_error
+  # rmse, median absolute error, and MAPE
   c(mean((actual - preds)^2),
     median(abs(actual - preds)),
-    mean(abs(actual - preds) / (abs(actual) + abs(preds))))
+    mean(abs(actual - preds) / abs(actual)))
 }

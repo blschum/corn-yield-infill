@@ -65,7 +65,7 @@ farmer_test <- test_fullset %>% select(YEAR,YIELD,PERC_IRR,FRR,GDD,BV2,BV18,
 
 # Virtually the same level of accuracy using the default parameters. The 
 # improvements due to tuning are inconsequential.
-check_rf <- ranger(YIELD ~ . , train)
+check_rf <- ranger(YIELD ~ . , train, importabce = "permute")
 train_2 <- train
 train_2$resid <- train_2$YIELD - predict(check_rf, train_2)$predictions
 # check_rf <- ranger(YIELD ~ . , train, num.trees = 2000, 

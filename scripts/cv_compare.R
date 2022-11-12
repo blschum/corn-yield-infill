@@ -18,7 +18,7 @@ reps <- 50
 tdf <- data.frame(formula = rep(-1, reps*length(formula_list)),
                   rmse = 0,
                   mae = 0, 
-                  smape = 0)
+                  mape = 0)
 
 set.seed(90210)
 ind <- 1
@@ -33,5 +33,5 @@ for(i in 1:length(formula_list)){
 }
 tdf[, 1] <- rep(1:length(formula_list), each = reps)
 
-save(tdf, file = "results/cv_results_11032022_3.Rdata")
+save(tdf, file = "results/cv_results_11122022.Rdata")
 
