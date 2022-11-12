@@ -34,7 +34,7 @@ ggplot(tsum, aes(x = factor(11 - n), y = mape)) +
   geom_boxplot() + 
   xlab("Number of Years Missing") + 
   ylab("MAPE") + 
-  scale_y_continuous(limits = c(0, 0.6), breaks = seq(0, 0.6, .1)) +
+  scale_y_continuous(limits = c(0, 2), breaks = seq(0, 2, 0.5)) +
   theme_bw() + 
   theme(text = element_text(size = 16))
 dev.off()
