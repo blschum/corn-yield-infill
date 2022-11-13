@@ -136,7 +136,7 @@ p <- ggplot(biophcv_preds, aes(x=YIELD, y=average_prediction)) +
   ylab("Ensemble Predicted (bushels/acre)") +
   xlim(1,250) +
   ylim(0,250) +
-  annotate("text", x = 175.0, y = 40.0, label = "RMSE = 16.5 bushels/acre\nVariance Explained = 82.5%", hjust=0)
+  annotate("text", x = 175.0, y = 40.0, label = "RMSE = 16.4 bushels/acre\nVariance Explained = 82.6%", hjust=0)
 p
 
 # % between -10 and 10
@@ -174,7 +174,7 @@ p <- ggplot(farmercv_preds, aes(x=YIELD, y=average_prediction)) +
   ylab("Ensemble Predicted (bushels/acre)") +
   xlim(1,250) +
   ylim(0,250) +
-  annotate("text", x = 175.0, y = 40.0, label = "RMSE = 17.3 bushels/acre\nVariance Explained = 80.8%", hjust=0)
+  annotate("text", x = 175.0, y = 40.0, label = "RMSE = 17.2 bushels/acre\nVariance Explained = 81.0%", hjust=0)
 p
 
 # % between -10 and 10
@@ -212,7 +212,7 @@ p <- ggplot(reducedcv_preds, aes(x=YIELD, y=average_prediction)) +
   ylab("Ensemble Predicted (bushels/acre)") +
   xlim(1,250) +
   ylim(0,250) +
-  annotate("text", x = 175.0, y = 40.0, label = "RMSE = 17.2 bushels/acre\nVariance Explained = 80.9%", hjust=0)
+  annotate("text", x = 175.0, y = 40.0, label = "RMSE = 17.1 bushels/acre\nVariance Explained = 81.0%", hjust=0)
 p
 
 # % between -10 and 10

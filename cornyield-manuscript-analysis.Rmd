@@ -562,8 +562,8 @@ sp_cl_cvpreds <- cbind(geoid_bio,sp_cl_preds)
 sp_cl_cvpreds <- sp_cl_cvpreds %>% 
   select(GEOID,YIELD,YEAR,22:71) 
 
-sp_cl_cvpreds$average_prediction = apply(sp_cl_cvpreds[,4,53], 1, mean)
-sp_cl_cvpreds$median_prediction = apply(sp_cl_cvpreds[,4,53], 1, median)
+sp_cl_cvpreds$average_prediction = apply(sp_cl_cvpreds[,4:53], 1, mean)
+sp_cl_cvpreds$median_prediction = apply(sp_cl_cvpreds[,4:53], 1, median)
 
 sp_cl_cvpreds <- sp_cl_cvpreds %>% 
   mutate(error = YIELD - average_prediction)
