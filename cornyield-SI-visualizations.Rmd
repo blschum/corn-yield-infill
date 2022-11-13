@@ -82,7 +82,7 @@ map <- tm_shape(missing_sp) +
 
 map
 
-tmap_save(map, file = './viz/SIFigure1.png', dpi = 400)
+tmap_save(map, file = './viz/SIFigure1.jpeg', dpi = 400)
 ```
 
 ## SI Figure 2. Correlation matrix for continuous predictors and corn yield (see SI Table 1, above for variables, units, and descriptions associated with variable names listed below)
@@ -100,7 +100,7 @@ p.mat_yield <- cor_pmat(corn_farm[c(1:29)])
 corrplot_farm <- ggcorrplot(corr_yield, hc.order = FALSE, p.mat = p.mat_yield, outline.col = "white", type = "lower", insig = "blank",lab = F, ggtheme = ggplot2::theme_minimal, colors = c("#6D9EC1", "white", "#E46726")
                             )
 
-ggsave(filename = "./viz/SIFigure2.png", plot = corrplot_farm, dpi = 300, width = 7, height = 7)
+ggsave(filename = "./viz/SIFigure2.jpeg", plot = corrplot_farm, dpi = 400, width = 7, height = 7)
 
 ```
 
@@ -119,7 +119,7 @@ map <- tm_shape(removed_sp) +
 
 map
 
-tmap_save(map, file = './viz/SIFigure3.png', dpi = 400)
+tmap_save(map, file = './viz/SIFigure3.jpeg', dpi = 400)
 ```
 
 ## SI Figure 4. Biophysical RF ensemble model performance based on five-fold cross validation. A) Average error in model predictions in bushels/acre observed across ensemble models (n = 50 replications) and years (2008-2018). Counties in which predicted yields were less (greater) than observed yields appear in shades of red (blue). B) Observed v. predicted plot for the full panel dataset. The dashed line indicates a 1:1 relationship, the solid blue line shows a linear regression between the observed and predicted yields.
@@ -156,7 +156,7 @@ img <- readPNG("./viz/biophcv-rf-performance.png")
 photo_panel <- ggdraw() + draw_image(img, scale = 1.05)
 
 plot_grid(photo_panel, p, nrow = 2, labels = c("A.", "B."))
-ggsave("./viz/SIFigure4.png", dpi = 400, width = 170, height  = 240, units = "mm", bg = "white")
+ggsave("./viz/SIFigure4.jpeg", dpi = 400, width = 170, height  = 240, units = "mm", bg = "white")
 
 ```
 
@@ -194,7 +194,7 @@ img <- readPNG("./viz/farmercv-rf-performance.png")
 photo_panel <- ggdraw() + draw_image(img, scale = 1.05)
 
 plot_grid(photo_panel, p, nrow = 2, labels = c("A.", "B."))
-ggsave("./viz/SIFigure5.png", dpi = 400, width = 170, height  = 240, units = "mm", bg = "white")
+ggsave("./viz/SIFigure5.jpeg", dpi = 400, width = 170, height  = 240, units = "mm", bg = "white")
 
 ```
 
@@ -232,10 +232,14 @@ img <- readPNG("./viz/reducedcv-rf-performance.png")
 photo_panel <- ggdraw() + draw_image(img, scale = 1.05)
 
 plot_grid(photo_panel, p, nrow = 2, labels = c("A.", "B."))
-ggsave("./viz/SIFigure6.png", dpi = 400, width = 170, height  = 240, units = "mm", bg = "white")
+ggsave("./viz/SIFigure6.jpeg", dpi = 400, width = 170, height  = 240, units = "mm", bg = "white")
+```
+## SI Figure 7. Boxplots of absolute percentage errors (APE) via 5-fold cross validation (one iteration) for all counties as organized by number of missing years. This figure shows that counties with less years of missing yield measurements (1-4 missing years) tend to have slightly smaller relative errors than counties with 5 or more missing years of yield measurement. It also shows that counties with missing values for almost all years tend to have the most extreme relative errors.
+```{r}
+
 ```
 
-## SI Figure 7. Partial dependence plots for consistently important variables in the a) biophysical ensemble and b) farm(er) ensemble. Partial dependence is the dependence of the outcome on one predictor after averaging out the effects of all other predictors in the model (Cutler et al., 2007). Partial dependence plots graphically characterize the relationship between an individual predictor (standardized, here) and the predicted values of yield (see SI Figure 8A-F for unstandardized relationships).
+## SI Figure 8. Partial dependence plots for consistently important variables in the a) biophysical ensemble and b) farm(er) ensemble. Partial dependence is the dependence of the outcome on one predictor after averaging out the effects of all other predictors in the model (Cutler et al., 2007). Partial dependence plots graphically characterize the relationship between an individual predictor (standardized, here) and the predicted values of yield (see SI Figure 8A-F for unstandardized relationships).
 
 #### Biophysical partial dependence plots
 ```{r}
@@ -339,14 +343,14 @@ farmer_pdp <- ggplot(pdp_f) +
 
 #ggsave(farmer_pdp, file = './viz/farmer_pdp.png', dpi = 300)
 
-ggarrange(bioph_pdp, farmer_pdp, nrow = 2, labels = c("A.", "B."))
-ggsave("./viz/SIFigure7.png", dpi = 400, height = 400, width = 250,units="mm")
+plot_grid(bioph_pdp, farmer_pdp, nrow = 2, labels = c("A.", "B."))
+ggsave("./viz/SIFigure8.jpeg", dpi = 400, height = 400, width = 250, units="mm")
 
 pdp.all <- rbind(pdp,pdp_f)
 saveRDS(pdp.all, "results/ranger-pdp/pdp-data.RDS")
 ```
 
-## SI Figure 8. Partial dependence plots of important variables from biophysical and farm(er) ensembles (raw data, not standardized); Partial dependence on: A) precipitation of the warmest quarter (BV18); B) % cultivated area in corn (perc_corn); C) growing degree days (GDD); D) irrigation (PERC_IRR); E) Shannon’s Diversity Index (SDI_CDL_AG); F) mean diurnal range (BV2); G) chemicals ($/acre); H) fertilizers ($/acre); I) government receipts ($/acre); and J) insurance ($/acre).
+## SI Figure 9. Partial dependence plots of important variables from biophysical and farm(er) ensembles (raw data, not standardized); Partial dependence on: A) precipitation of the warmest quarter (BV18); B) % cultivated area in corn (perc_corn); C) growing degree days (GDD); D) irrigation (PERC_IRR); E) Shannon’s Diversity Index (SDI_CDL_AG); F) mean diurnal range (BV2); G) chemicals ($/acre); H) fertilizers ($/acre); I) government receipts ($/acre); and J) insurance ($/acre).
 
 ```{r}
 pdp.all <- readRDS("./results/ranger-pdp/pdp-data.RDS")
@@ -362,9 +366,9 @@ pdp.all.viz <- ggplot(pdp.all) +
 
 tag_facet(pdp.all.viz, size = 3, vjust = 0.9)
 
-ggsave("./viz/SIFigure8.png", dpi = 400, height = 8, width = 6, units = "in")
+ggsave("./viz/SIFigure9.jpeg", dpi = 400, height = 8, width = 6, units = "in")
 ```
-## SI Figure 9. Partial dependence plots of important variables from reduced ensemble (raw data, not standardized); Partial dependence on: A) precipitation of the warmest quarter (BV18); B) % cultivated area in corn (perc_corn); C) growing degree days (GDD); D) irrigation (PERC_IRR); E) Shannon’s Diversity Index (SDI_CDL_AG); F) mean diurnal range (BV2); G) chemicals ($/acre); H) fertilizers ($/acre); I) government receipts ($/acre); and J) insurance ($/acre).
+## SI Figure 10. Partial dependence plots of important variables from reduced ensemble (raw data, not standardized); Partial dependence on: A) precipitation of the warmest quarter (BV18); B) % cultivated area in corn (perc_corn); C) growing degree days (GDD); D) irrigation (PERC_IRR); E) Shannon’s Diversity Index (SDI_CDL_AG); F) mean diurnal range (BV2); G) chemicals ($/acre); H) fertilizers ($/acre); I) government receipts ($/acre); and J) insurance ($/acre).
 
 ```{r}
 pdp.red <- readRDS("./results/ranger-pdp/reduced-pdp-data.RDS")
@@ -400,10 +404,10 @@ pdp.red.viz <- ggplot(pdp) +
 
 tag_facet(pdp.red.viz, size = 3, vjust = 0.9)
 
-ggsave("./viz/SIFigure9.png", dpi = 400, height = 8, width = 6, units = "in")
+ggsave("./viz/SIFigure10.jpeg", dpi = 400, height = 8, width = 6, units = "in")
 ```
 
-## SI Figure 10. Bivariate choropleth constructed by binning county-level average corn yield (bushels/acre) and percent acres cultivated in corn on agricultural lands from 2008-2018 into thirds; each tercile is then paired and binned into distinct categories. Yellow indicates counties with high average corn yields and an agricultural landscape dominated by corn production, while purple indicates counties with low average yields and a low percentage of agricultural acres in corn. Gray counties indicate missing data.
+## SI Figure 11. Bivariate choropleth constructed by binning county-level average corn yield (bushels/acre) and percent acres cultivated in corn on agricultural lands from 2008-2018 into thirds; each tercile is then paired and binned into distinct categories. Yellow indicates counties with high average corn yields and an agricultural landscape dominated by corn production, while purple indicates counties with low average yields and a low percentage of agricultural acres in corn. Gray counties indicate missing data.
 ```{r}
 yield_dom <- corn_yield %>% dplyr::select(GEOID, YIELD, YEAR, perc_corn) %>% group_by(GEOID) %>%  summarise(YIELD = mean(YIELD), perc_corn = mean(perc_corn))
 
@@ -465,11 +469,11 @@ map <- tm_shape(d_complete) +
 
 map
 
-tmap_save(map, file = paste0('./viz/SIFigure10-nolegend.png'), dpi = 400)
+tmap_save(map, file = paste0('./viz/SIFigure11-nolegend.png'), dpi = 400)
 
 ```
 
-## SI Figure 11. Percent irrigated acreage on agricultural lands across study years (2008-2018) faceted by prediction class.
+## SI Figure 12. Percent irrigated acreage on agricultural lands across study years (2008-2018) faceted by prediction class.
 ```{r}
 # box whisker comparing difficult to regress places and easy v. irrigated extent
 ibw <- biophcv_preds
@@ -492,6 +496,6 @@ bw <- ggplot(ibw, aes(x=factor(YEAR), y=PERC_IRR, fill=cat)) +
   guides(fill=guide_legend(title="Error"))
 bw
 
-ggsave(filename = "./viz/SIFigure11.png", plot = bw, dpi = 400, width = 7, height = 5)
+ggsave(filename = "./viz/SIFigure12.jpeg", plot = bw, dpi = 400, width = 7, height = 5)
 ```
 
