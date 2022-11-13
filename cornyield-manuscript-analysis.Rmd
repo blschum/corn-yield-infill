@@ -627,7 +627,7 @@ saveRDS(pdp_bv8, "./results/ranger-pdp/BV8-red.RDS")
 # 4.0 Infill 
 ###########################
 
-## 4.1.1 Infill missing county-year yield in all counties reporting at lest one year of yields between 2008 and 2018.
+## 4.1.1 Infill missing county-year yield in all counties reporting at least one year of yields between 2008 and 2018.
 ```{r}
 library(tidyverse)
 library(matrixStats)
@@ -657,3 +657,39 @@ infill_preds_df$median_prediction = apply(infill_preds_df[,3:52], 1, median)
 
 saveRDS(infill_preds_df, "./results/ranger-results/infill.RDS")
 ```
+
+###########################
+# 5.0 Naive infill - control
+###########################
+
+## 5.1.1 Infill missing county-year yield in all counties reporting at least one year of yields between 2008 and 2018 using naive imputation (median yield across reported years)
+```{r}
+corn_yield <- readRDS("./data/data-out/true-train.RDS")
+
+corn_med <- corn_yield |>
+  group_by(GEOID) |>
+  summarize(n = n(),
+            medyield = median(YIELD)) |>
+  filter(n > 11)
+
+corn_yield_compare <- corn_yield |>
+  select(GEOID, YIELD) |>
+  left_join(corn_med, by = "GEOID") |>
+  drop_na() |>
+  mutate(resid = YIELD - medyield)
+
+sqrt(mean(corn_yield_compare$resid^2))
+
+# n = 1, 25.74551
+# n = 2, 25.81995
+# n = 3, 25.82938 
+# n = 4, 25.88753
+# n = 5, 25.84599
+# n = 6, 25.86363
+# n = 7, 25.92752
+# n = 8, 25.88558
+# n = 9, 25.86005
+# n = 10, 25.63954
+# Our model improves prediction accuracy by over 25% compared to naive imputation (infilling with the median county yield across years, RMSE = 25.6-25.9 bushels/acre).
+```
+

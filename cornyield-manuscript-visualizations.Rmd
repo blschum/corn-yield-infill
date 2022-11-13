@@ -81,7 +81,7 @@ map <- tm_shape(y_sp) +
 
 map
 
-tmap_save(map, file = './viz/Figure1.png', dpi = 400)
+tmap_save(map, file = './viz/Figure1.jpeg', dpi = 400)
 ```
 
 ## Figure 2. Permutation variable importance for the A) biophysical and B) farmer RF resubstitution models of corn yield. The covariates appear on the y-axis and their contribution to decreased variance on the x-axis. Variables are listed in order of importance, with the most important variable being year and least important being mean temperature of the wettest quarter in panel A, and years of experience in panel B; see SI Table 1 for variable names, units, and descriptions.
@@ -106,17 +106,17 @@ bio.imp$varfull <- c("Year","Irrigation","Farm Resource Regions","Growing degree
 bio_imp_plot <- ggplot(bio.imp, aes(x=reorder(varfull, VI), y=VI)) + 
   geom_point() +
   geom_segment(aes(x=varfull,xend=varfull,y=0,yend=VI)) +
-  ylab("Decrease variance") +
+  ylab("Decrease in variance") +
   xlab("") +
   coord_flip() +
   theme_minimal()
 
 plot_grid(bio_imp_plot, farmer_imp_plot, ncol = 2, labels = c("A.", "B."))
-ggsave("./viz/Figure2.png", dpi = 400, width = 240, height  = 120, units = "mm", bg = "white")
+ggsave("./viz/Figure2.jpeg", dpi = 400, width = 240, height  = 120, units = "mm", bg = "white")
 ```
 ## Figure 3. Comparison of change in the 5-fold cross validation accuracy when variable groups are removed from the model. The dashed line represents the median accuracy metric for the model including all variables. The boxplots represent the range of errors observed in 50 replications of cross validation. Error metrics include the root mean square error (RMSE), the median absolute error (MAE), and the symmetric mean absolute percentage error (SMAPE). 
 ```{r}
-load("results/cv_results_11032022_3.Rdata")
+load("results/cv_results_11122022.Rdata")
 source("scripts/formula_prep.R")
 
 p1 <- tdf |> filter(formula != 1) |>
@@ -151,23 +151,23 @@ p2 <- tdf |> filter(formula != 1) |>
 
 p3 <- tdf |> filter(formula != 1) |>
   ggplot(aes(x = factor(formula, levels = c(5, 2, 3, 4, 6:15)), 
-             y = smape*100)) + 
-  geom_hline(yintercept = median(tdf$smape[tdf$formula == 1]*100), 
+             y = mape*100)) + 
+  geom_hline(yintercept = median(tdf$mape[tdf$formula == 1]*100), 
              lwd = 1, lty = 2) + 
   geom_boxplot() + 
   scale_x_discrete(labels = formula_labels[c(5, 2, 3, 4, 6:15)]) + 
-  scale_y_continuous(limits = c(5, 6.5), breaks = seq(5, 6.5, .5)) + 
+  scale_y_continuous(limits = c(11, 15), breaks = seq(11, 15, 1)) + 
   coord_flip() +
   xlab("") + 
-  ylab("SMAPE") + 
+  ylab("MAPE") + 
   theme_bw() + 
   theme(text = element_text(size = 16),
         axis.text.y = element_blank(), 
         axis.ticks.y = element_blank())
 
 #pdf(file = "results/test_importance.pdf", width = 10, height = 6)
-jpeg(file = "viz/Figure3.png", width = 10, height = 6,
-     units = "in", res = 600)
+jpeg(file = "viz/Figure3.jpeg", width = 10, height = 6,
+     units = "in", res = 400)
 gridExtra::grid.arrange(p1, p2, p3, widths = c(15, 8, 8), nrow = 1)
 dev.off()
 
@@ -187,7 +187,7 @@ reduced_imp_plot <- ggplot(reduced.imp, aes(x=reorder(varfull, VI), y=VI)) +
   coord_flip() +
   theme_minimal()
 
-ggsave("./viz/Figure4.png", dpi = 400, width = 240, height  = 120, units = "mm", bg = "white")
+ggsave("./viz/Figure4.jpeg", dpi = 400, width = 240, height  = 120, units = "mm", bg = "white")
 
 ```
 
@@ -225,7 +225,7 @@ f <- tm_shape(infill_sum_sp) +
   tm_borders(col = "black") 
 
 f
-tmap_save(tm = f, file = './viz/Figure5.png', dpi = 400, width = 8, height = 5)
+tmap_save(tm = f, file = './viz/Figure5.jpeg', dpi = 400, width = 8, height = 5)
 
 
 ```
@@ -321,7 +321,7 @@ cowplot::plot_grid(reduced_pdp, p2, align = "v", ncol = 1, axis = "l",
 
                    rel_heights = c(3, 1))     
 
-ggsave(file = './viz/Figure6.png', dpi = 300, height = 220, width = 220,units="mm")
+ggsave(file = './viz/Figure6.jpeg', dpi = 400, height = 220, width = 220,units="mm")
 ```
 
 
