@@ -1,14 +1,14 @@
-# Leveraging important variables for corn yield prediction   
+# Leveraging Important Covariate Groups for Corn Yield Prediction 
 
-Authors: B. Schumacher*, E. Burchfield, M. Yost, and B. Bean
+Authors: B. Schumacher*, E. Burchfield, B. Bean, and M. Yost
 
 *Corresponding author
 
 =======
 
-Accurate yield information empowers farmers to adapt, their governments to adopt timely agricultural and food policy interventions, and the markets they supply to prepare for production shifts. Unfortunately, the most representative yield data in the US, provided by the USDA-NASS Surveys, are spatiotemporally patchy and inconsistent; across the coterminous US between 2008 and 2018, 25% of US county-year corn yield data is missing in counties reporting at least one year of corn yields. Given the sparse nature of these data, and the importance of accurate yield information to farmer livelihoods and the US economy, researchers and other agricultural stakeholders would benefit from a more comprehensive yield data product. This paper seeks to provide a framework for producing this product using a simple and highly predictive non-parametric algorithm. Our objective is to examine the spatiotemporal efficacy of Random Forest (RF) in predicting county-level yields of corn—the most widely cultivated crop in the US—using both traditional and novel features. To meet our objective, we build biophysical RFs, test the sensitivity of our analyses to the addition of farm(er) characteristics, and utilize variable importance measures and partial dependence plots to compare and contextualize how key variables interact with corn yield across models. Results suggest that RF predicts US corn yields well (RMSE = 17.22 bushels/acre (1.16 tons/hectare) in the biophysical ensemble and RMSE = 17.29 bushels/acre (1.16 tons/hectare) in the farm(er) ensemble) across space (coterminous US) and time (2008-2018). Results also point to the importance of space and time in corn yield prediction, and the highly nonlinear response of corn yield to irrigation, climate, agricultural diversity, and farm(er) covariates. These results demonstrate the efficacy and predictive capacity of RF regression to model complex corn yield responses to biophysical and farm(er) conditions. We conclude by contextualizing our findings with existing knowledge about yield response to important covariates and make recommendations about relationships that warrant further exploration. The empirical evidence detailed in this paper, along with the clean datasets produced, should be an effective tool for further elucidating links between crop yields and future cropscapes.
+**Abstract**: Accurate yield information empowers farmers to adapt, their governments to adopt timely agricultural and food policy interventions, and the markets they supply to prepare for production shifts. Unfortunately, the most representative yield data in the US, provided by the US Department of Agriculture, National Agricultural Statistics Service (USDA-NASS) Surveys, are spatiotemporally patchy and inconsistent. This paper builds a more complete data product by examining the spatiotemporal efficacy of random forests (RF) in predicting county-level yields of corn—the most widely cultivated crop in the US. To meet our objective, we compare RF cross-validated prediction accuracy using several combinations of explanatory variables. We also utilize variable importance measures and partial dependence plots to compare and contextualize how key variables interact with corn yield. Results suggest that RF predicts US corn yields well using a relatively small subset of climate variables along with the year and geographical location (RMSE = 17.1 bushels/acre (1.2 tons/hectare)). Of note is the insensitivity of RF prediction accuracy when removing variables traditionally thought to be predictive of yield or variables flagged as important by RF variable importance measures. Understanding what variables are needed to accurately predict corn yields provides a template for applying machine learning approaches to estimate county-level yields for other US crops.
 
-**Key words**: yield modeling, corn, random forest, data infilling, yield prediction
+**Key words**: yield modeling; corn; random forest; data infilling; yield prediction
  
 
 ## Getting started
@@ -43,6 +43,16 @@ If you've stumbled up on this repo and are interested in the infilled corn yield
 
 ‘yieldRF.RDS’: full cleaned, merged, and interpolated biophysical and farm(er) dataset. Includes all county-years for which data is reported in counties reporting at least one year of data between 2008 and 2018.
 
+### Data files in corn-yield-infill/data/data-raw
+
+‘BSDS_att_raw.RDS’:
+
+‘BSDS_standatt_operated.RDS’:
+
+‘COA-vars.RDS’:
+
+‘yield-modeling-panel.RDS’: 
+
 ### Data files in corn-yield-infill/data/data-out
 
 'ensemble_bioph_infill.RDS': complete infilled dataset including 11-years/county (2008-2018) of corn yields as predicted by the biophysical RF ensemble.
@@ -54,6 +64,26 @@ If you've stumbled up on this repo and are interested in the infilled corn yield
 'ensemble_farmer_infill.RDS': complete infilled dataset including 11-years/county (2008-2018) of corn yields as predicted by the farm(er) RF ensemble.
 
 'ensemble_infill_diff.RDS': the difference in county-year yield predictions between the biophysical and farm(er) RF ensembles.
+
+'farm-er-linear-interp.RDS':
+
+'infill-diff.RDS':
+
+'true-test-infill-obs.RDS':
+
+'true-train.RDS':
+
+'true-BIOPH-ranger.RDS':
+
+### Data files in corn-yield-infill/data/data-out/for-RF-analysis
+
+'bio_test.RDS':
+
+'bio_train.RDS':
+
+'farmer_test.RDS':
+
+'farmer_train.RDS':
 
 ### .RDS/.html files in corn-yield-infill
 
@@ -86,6 +116,12 @@ This folder contains all of the results from the RF implementation from the {ran
 'ranger-pdp': partial dependence measures for {ranger} models on important variables.
 
 'ranger-preds': all predictions from test-set RFs.
+
+'randger-results': infill dataset
+
+### Scripts in corn-yield-infill/scripts
+
+@Brennan Bean
 
 ### Visualizations in corn-yield-infill/viz
 
